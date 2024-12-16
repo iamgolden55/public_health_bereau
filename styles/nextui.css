@@ -1,0 +1,36 @@
+/* styles/nextui.css */
+
+[data-overlay-container="true"] {
+    position: relative;
+    z-index: 0;
+  }
+  
+  .nextui-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.4);
+    animation: backdrop-in 0.2s ease forwards;
+  }
+  
+  .nextui-backdrop-exit {
+    animation: backdrop-out 0.2s ease forwards;
+  }
+  
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes backdrop-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
