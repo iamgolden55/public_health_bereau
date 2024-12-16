@@ -1,0 +1,335 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from "@/components/ui/use-toast";
+import axios from 'axios';
+import * as THREE from 'three';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  useDisclosure,
+  Image
+} from "@nextui-org/react";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  Brain,
+  Heart,
+  Eye,
+  Bone,
+  Activity,
+  ZoomIn,
+  RotateCw,
+  Maximize2,
+  Download,
+  Share2,
+  Plus
+} from "lucide-react";
+
+// Mock data for departments
+const departmentsData = [
+  { id: 1, icon: Brain, name: "Neurology", cases: 24, color: "primary" },
+  { id: 2, icon: Heart, name: "Cardiology", cases: 18, color: "danger" },
+  { id: 3, icon: Eye, name: "Ophthalmology", cases: 15, color: "warning" },
+  { id: 4, icon: Bone, name: "Orthopedics", cases: 21, color: "success" }
+];
+
+// Mock medical cases
+const medicalCases = [
+  {
+    id: 1,
+    title: "Complex Brain Tumor Case",
+    patientId: "PT-2024-001",
+    department: "Neurology",
+    type: "MRI",
+    status: "In Review",
+    date: "2024-03-15",
+    imageUrl: "/api/placeholder/800/400",
+    annotations: [
+      { x: 45, y: 55, label: "Tumor Location", severity: "high" },
+      { x: 60, y: 40, label: "Affected Area", severity: "medium" }
+    ],
+    findings: [
+      "Grade III Astrocytoma",
+      "Right temporal lobe involvement",
+      "No metastasis detected"
+    ]
+  }
+];
+
+const ImageViewer3D = ({ imageData, dimensions }) => {
+  return (
+    <Canvas style={{ height: '400px' }}>
+      <ambientLight />
+      <pointLight position={[10, 10, 10]} />
+      <mesh>
+        <boxGeometry args={dimensions || [1, 1, 1]} />
+        <meshStandardMaterial />
+      </mesh>
+      <OrbitControls />
+    </Canvas>
+  );
+};
+
+export default function SpecialtyClinic() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [activeCase, setActiveCase] = useState(null);
+  const [activeDepartment, setActiveDepartment] = useState(null);
+  const [viewMode, setViewMode] = useState("3d");
+  const [imageData, setImageData] = useState(null);
+  const [rotation, setRotation] = useState([0, 0, 0]);
+  const { toast } = useToast();
+
+  // Handle 3D rotation
+  const handleRotate = useCallback(async (axis, angle) => {
+    try {
+      const newRotation = [...rotation];
+      newRotation[axis] += angle;
+      setRotation(newRotation);
+
+      const response = await axios.post(
+        `/api/medical-images/${activeCase?.id}/rotate_3d/`,
+        { angles: newRotation }
+      );
+
+      setImageData(response.data);
+    } catch (error) {
+      toast({
+        title: "Rotation Failed",
+        description: "Failed to rotate image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [rotation, activeCase, toast]);
+
+  // Handle file export
+  const handleExport = async () => {
+    try {
+      const response = await axios.post(
+        `/api/medical-cases/${activeCase?.id}/export_case/`,
+        {},
+        { responseType: 'blob' }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `case_${activeCase.id}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      toast({
+        title: "Export Successful",
+        description: "Case files have been downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export case files. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle case sharing
+  const handleShare = async (recipients) => {
+    try {
+      const response = await axios.post(
+        `/api/medical-cases/${activeCase?.id}/share_case/`,
+        { recipients }
+      );
+
+      toast({
+        title: "Case Shared",
+        description: "Case has been shared successfully.",
+      });
+
+      return response.data.sharing_links;
+    } catch (error) {
+      toast({
+        title: "Sharing Failed",
+        description: "Failed to share case. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle department selection
+  const handleDepartmentSelect = async (departmentId) => {
+    try {
+      const response = await axios.get(
+        `/api/departments/${departmentId}/department_stats/`
+      );
+      setActiveDepartment(response.data);
+      onOpen();
+    } catch (error) {
+      toast({
+        title: "Failed to Load Department",
+        description: "Could not load department details. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderMedicalViewer = () => (
+    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+      <div className="absolute top-4 right-4 flex gap-2 z-10">
+        <Button isIconOnly size="sm" variant="flat">
+          <ZoomIn className="w-4 h-4" />
+        </Button>
+        <Button isIconOnly size="sm" variant="flat">
+          <RotateCw className="w-4 h-4" />
+        </Button>
+        <Button isIconOnly size="sm" variant="flat">
+          <Maximize2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Medical Image Viewer */}
+      {imageData ? (
+        <ImageViewer3D 
+          imageData={imageData} 
+          dimensions={imageData.dimensions}
+        />
+      ) : (
+        <div className="relative w-full h-full">
+          <Image
+            alt="Medical scan"
+            src="/api/placeholder/800/400"
+            className="w-full h-full object-cover"
+          />
+          
+          {/* Interactive Annotations */}
+          {activeCase?.annotations?.map((annotation, index) => (
+            <div
+              key={index}
+              className={`absolute w-4 h-4 rounded-full cursor-pointer
+                ${annotation.severity === 'high' ? 'bg-red-500' : 'bg-yellow-500'}
+              `}
+              style={{
+                left: `${annotation.x}%`,
+                top: `${annotation.y}%`,
+                transform: 'translate(-50%, -50%)'
+              }}
+            >
+              <div className="absolute left-full ml-2 bg-black/75 text-white text-xs p-1 rounded whitespace-nowrap">
+                {annotation.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Specialty Clinic</h1>
+          <p className="text-default-500">Advanced medical imaging and case management</p>
+        </div>
+        <Button color="primary" startContent={<Plus />}>
+          New Case
+        </Button>
+      </div>
+
+      {/* 3D Viewer */}
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex justify-between items-center w-full">
+            <h3 className="text-lg font-semibold">Advanced Medical Imaging</h3>
+            <div className="flex gap-2">
+              <Button 
+                variant="flat" 
+                startContent={<Download />}
+                onPress={handleExport}
+              >
+                Export
+              </Button>
+              <Button 
+                variant="flat" 
+                startContent={<Share2 />}
+                onPress={() => handleShare(['recipient@example.com'])}
+              >
+                Share
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody>
+          {renderMedicalViewer()}
+        </CardBody>
+      </Card>
+
+      {/* Departments */}
+      <Card>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Departments</h3>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {departmentsData.map((dept) => (
+              <Card 
+                key={dept.id} 
+                isPressable 
+                onPress={() => handleDepartmentSelect(dept.id)}
+                className="hover:scale-105 transition-transform"
+              >
+                <CardBody>
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg bg-${dept.color}/10`}>
+                      <dept.icon className={`w-6 h-6 text-${dept.color}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{dept.name}</h3>
+                      <p className="text-small text-default-500">{dept.cases} active cases</p>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Department Details Modal */}
+      <Modal size="2xl" isOpen={isOpen} onClose={onClose}>
+        <ModalContent>
+          <ModalHeader>Department Details</ModalHeader>
+          <ModalBody>
+            {activeDepartment && (
+              <div className="space-y-4">
+                {/* Modal content */}
+                {renderMedicalViewer()}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-semibold">Findings</h4>
+                        <ul className="list-disc list-inside">
+                          {activeCase.findings.map((finding, index) => (
+                            <li key={index}>{finding}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">Case Information</h4>
+                        <p>Patient ID: {activeCase.patientId}</p>
+                        <p>Department: {activeCase.department}</p>
+                        <p>Date: {activeCase.date}</p>
+                      </div>
+                    </div>
+              </div>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </div>
+  );
+}

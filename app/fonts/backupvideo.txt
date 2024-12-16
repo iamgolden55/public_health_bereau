@@ -1,0 +1,88 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { Search, Play, Pause } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+
+// Sample categories and videos data
+const categories = [
+  { id: 1, name: "First Aid Essentials" },
+  { id: 2, name: "Home Remedies" },
+  { id: 3, name: "Understanding Symptoms" },
+  { id: 4, name: "Wellness Tips" },
+  { id: 5, name: "Mental Health" },
+  { id: 6, name: "Nutrition" },
+]
+
+const videos = [
+  { id: 1, title: "CPR Basics", duration: "5:30", rating: 4.8, thumbnail: "/placeholder.svg?height=169&width=300", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", category: "First Aid Essentials" },
+  { id: 2, title: "Natural Headache Relief", duration: "7:15", rating: 4.5, thumbnail: "/placeholder.svg?height=169&width=300", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", category: "Home Remedies" },
+  { id: 3, title: "Recognizing Heart Attack Signs", duration: "6:45", rating: 4.9, thumbnail: "/placeholder.svg?height=169&width=300", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", category: "Understanding Symptoms" },
+  { id: 4, title: "Mindfulness Meditation", duration: "10:00", rating: 4.7, thumbnail: "/placeholder.svg?height=169&width=300", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", category: "Wellness Tips" },
+  { id: 5, title: "Healthy Eating Habits", duration: "8:20", rating: 4.6, thumbnail: "/placeholder.svg?height=169&width=300", videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", category: "Nutrition" },
+]
+
+// Hook to detect mobile view
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return isMobile;
+}
+
+const VideoThumbnail = ({ video }) => (
+  <div className="relative flex-none w-full h-full rounded overflow-hidden transition-transform transform hover:scale-105 bg-gray-800">
+    <img
+      src={video.thumbnail}
+      alt={video.title}
+      className="w-full h-full object-cover"
+    />
+    <div className="absolute bottom-0 left-0 p-2 bg-black bg-opacity-60 text-white text-xs w-full text-center">
+      {video.title}
+    </div>
+  </div>
+);
+
+const VideoGallery = () => (
+  <ScrollArea className="flex flex-wrap gap-4 p-4">
+    {videos.map(video => (
+      <div key={video.id} className="w-[160px] h-[200px]">
+        <VideoThumbnail video={video} />
+      </div>
+    ))}
+    <ScrollBar />
+  </ScrollArea>
+);
+
+const MobileView = () => (
+  <div className="p-4 bg-gray-900 text-white">
+    <h1 className="text-xl font-bold mb-4">Video Library (Mobile)</h1>
+    <VideoGallery />
+  </div>
+);
+
+const DesktopView = () => (
+  <div className="w-full h-screen bg-gray-800 mx-auto max-w-screen-lg p-8 text-white">
+    <h1 className="text-3xl font-bold mb-8">Video Library (Desktop)</h1>
+    <VideoGallery />
+  </div>
+);
+
+const App = () => {
+  const isMobile = useIsMobile();
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full">
+      {isMobile ? <MobileView /> : <DesktopView />}
+    </div>
+  );
+};
+
+export default App;

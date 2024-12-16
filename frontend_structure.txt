@@ -1,0 +1,123 @@
+app
+├── [role]
+│   ├── hospital
+│   │   └── page.tsx
+│   ├── layout.tsx
+│   ├── patient
+│   │   ├── AddSurgeryModal.css
+│   │   ├── HealthVideoLibrary.tsx
+│   │   ├── ViewSurgeryModal.tsx
+│   │   ├── appointments.tsx
+│   │   ├── chat.tsx
+│   │   ├── client-layout.tsx
+│   │   ├── consultation.tsx
+│   │   ├── creative-medical-cards.tsx
+│   │   ├── dashboard-skeleton.tsx
+│   │   ├── emergency.tsx
+│   │   ├── gp-usage.tsx
+│   │   ├── health-video-library-skeleton.tsx
+│   │   ├── loading-context.tsx
+│   │   ├── medical-records.tsx
+│   │   ├── medical-surgerymodal.tsx
+│   │   ├── page.tsx
+│   │   ├── settings.tsx
+│   │   └── test.txt
+│   ├── professional
+│   │   ├── analytics.tsx
+│   │   ├── components
+│   │   │   └── analytics
+│   │   │       ├── AnalyticsDashboard.tsx
+│   │   │       ├── QuickStatCard.tsx
+│   │   │       ├── mock-data.ts
+│   │   │       └── types.ts
+│   │   ├── overview.tsx
+│   │   ├── page.tsx
+│   │   └── reports.tsx
+│   ├── researcher
+│   │   └── page.tsx
+│   └── superadmin
+│       └── page.tsx
+├── api
+│   ├── african.json
+│   └── videos
+│       └── route.ts
+├── auth
+│   ├── layout.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── phb-splash-screen.tsx
+│   ├── register
+│   │   └── page.tsx
+│   └── verify-email
+│       └── page.tsx
+├── components
+│   ├── HealthAIChat.tsx
+│   ├── LoadingScreen.tsx
+│   ├── NavUser.tsx
+│   ├── VerificationStatus.tsx
+│   ├── VerificationStep.tsx
+│   ├── YouTubeEmbed.tsx
+│   ├── cardpayments.tsx
+│   └── custom-toast.tsx
+├── context
+│   └── user-context.tsx
+├── favicon.ico
+├── fonts
+│   ├── GeistMonoVF.woff
+│   ├── GeistVF.woff
+│   └── backupvideo.txt
+├── globals.css
+├── hooks
+│   └── useViewSwitcher.ts
+├── layout.tsx
+├── middleware.ts
+├── page.tsx
+├── providers.tsx
+├── stores
+│   ├── surgeryStore.ts
+│   └── surgeryVerificationStore.ts
+├── types
+│   ├── billing
+│   │   ├── index.ts
+│   │   ├── insurance.ts
+│   │   ├── payments.ts
+│   │   └── platform.ts
+│   ├── communication
+│   │   ├── index.ts
+│   │   ├── messages.ts
+│   │   ├── notifications.ts
+│   │   └── tasks.ts
+│   ├── core
+│   │   ├── auth.ts
+│   │   ├── index.ts
+│   │   ├── responses.ts
+│   │   └── user.ts
+│   ├── devices
+│   │   ├── devices.ts
+│   │   ├── index.ts
+│   │   └── integration.ts
+│   ├── hospital
+│   │   ├── affiliations.ts
+│   │   ├── index.ts
+│   │   └── staff.ts
+│   ├── index.ts
+│   ├── medical
+│   │   ├── appointments.ts
+│   │   ├── index.ts
+│   │   ├── records.ts
+│   │   └── surgery.ts
+│   └── research
+│       ├── ai.ts
+│       ├── analytics.ts
+│       ├── index.ts
+│       └── projects.ts
+└── utils
+    ├── analytics-helpers.ts
+    ├── errors
+    │   ├── ErrorBoundary.tsx
+    │   ├── ErrorFallback.tsx
+    │   ├── errorHandlers.ts
+    │   └── types.ts
+    └── surgery-validators.ts
+
+30 directories, 91 files

@@ -1,0 +1,668 @@
+'use client'
+
+import { useState } from "react"
+import { motion, AnimatePresence } from 'framer-motion'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { User, Shield, Bell, Eye, Activity, Lock, Smartphone, Globe, Heart, BarChart2, AlertTriangle } from 'lucide-react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/components/ui/use-toast"
+
+const TabIcon = ({ icon: Icon }) => (
+  <Icon className="w-5 h-5" />
+)
+
+export default function TwitterStyleMedicalSettings() {
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("account")
+  const [deactivateKeyword, setDeactivateKeyword] = useState('')
+  const confirmKeyword = 'DEACTIVATE'
+
+  // State for user data
+  const [userData, setUserData] = useState({
+    first_name: "John",
+    last_name: "Doe",
+    email: "john.doe@example.com",
+    phone: "",
+    country: "United States",
+    height: "",
+    weight: "",
+    avatar: "/placeholder.svg"
+  })
+
+  // State for switches
+  const [switches, setSwitches] = useState({
+    twoFactorAuth: false,
+    securityAlerts: false,
+    appointmentReminders: false,
+    medicationAlerts: false,
+    healthTips: false,
+    testResults: false,
+    emergencyAlerts: false,
+    emailNotifications: false,
+    pushNotifications: false,
+    shareWithProviders: false,
+    shareAnonymizedData: false,
+    heartRateMonitoring: false,
+    sleepTracking: false,
+    activityTracking: false
+  })
+
+  // State for health settings
+  const [healthSettings, setHealthSettings] = useState({
+    stepGoal: 8000,
+    weeklyExerciseGoal: 5,
+    dailyWaterIntakeGoal: 8,
+    sleepGoal: 8,
+    allergies: "",
+    chronicConditions: ""
+  })
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setUserData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSwitchChange = (name: string) => {
+    setSwitches(prev => ({ ...prev, [name]: !prev[name] }))
+  }
+
+  const handleHealthSettingChange = (name: string, value: number | string) => {
+    setHealthSettings(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSaveChanges = () => {
+    toast({
+      title: "Changes saved",
+      description: "Your settings have been updated successfully.",
+    })
+  }
+
+  const handleDeactivate = () => {
+    if (deactivateKeyword === confirmKeyword) {
+      toast({
+        title: "Account deactivated",
+        description: "Your account has been successfully deactivated.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  return (
+    <div className="w-full bg-white dark:bg-[#15202b] text-gray-900 dark:text-white rounded-xl">
+      <div className="max-w-4xl mx-auto p-2 sm:p-4">
+        <h1 className="text-2xl font-bold mb-4 sm:mb-6">Settings</h1>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="flex w-full gap-1 mb-6 bg-transparent justify-between border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+            {[
+              { value: "account", icon: User, label: "Your account" },
+              { value: "security", icon: Shield, label: "Security" },
+              { value: "notifications", icon: Bell, label: "Notifications" },
+              { value: "privacy", icon: Eye, label: "Privacy" },
+              { value: "health", icon: Activity, label: "Health" },
+            ].map(({ value, icon, label }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="flex flex-col items-center px-2 sm:px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:text-blue-500 transition-all text-xs sm:text-sm"
+              >
+                <TabIcon icon={icon} />
+                <span className="mt-1 hidden sm:inline">{label}</span>
+                <span className="mt-1 sm:hidden">{label.split(' ')[0]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="bg-gray-50 dark:bg-[#1e2732] rounded-xl p-3 sm:p-6"
+            >
+              <TabsContent value="account" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Account information</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Manage your personal information</p>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4 mb-6">
+                        <Avatar className="h-20 w-20 ring-2 ring-blue-500 dark:ring-blue-400">
+                          <AvatarImage src={userData.avatar} alt={`${userData.first_name} ${userData.last_name}`} />
+                          <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xl">
+                            {userData.first_name.charAt(0)}{userData.last_name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <Button 
+                          variant="outline" 
+                          className="text-blue-500 dark:text-blue-400 border-blue-500 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                        >
+                          Change Avatar
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="first_name" className="text-gray-500 dark:text-gray-400">First Name</Label>
+                          <Input 
+                            id="first_name"
+                            name="first_name"
+                            value={userData.first_name}
+                            onChange={handleInputChange}
+                            placeholder="Enter your first name"
+                            className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="last_name" className="text-gray-500 dark:text-gray-400">Last Name</Label>
+                          <Input 
+                            id="last_name"
+                            name="last_name"
+                            value={userData.last_name}
+                            onChange={handleInputChange}
+                            placeholder="Enter your last name"
+                            className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email" className="text-gray-500 dark:text-gray-400">Email</Label>
+                        <Input 
+                          id="email"
+                          name="email"
+                          type="email" 
+                          value={userData.email}
+                          onChange={handleInputChange}
+                          className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="phone" className="text-gray-500 dark:text-gray-400">Phone number</Label>
+                        <Input 
+                          id="phone"
+                          name="phone"
+                          type="tel" 
+                          value={userData.phone}
+                          onChange={handleInputChange}
+                          placeholder="Add a phone number" 
+                          className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="country" className="text-gray-500 dark:text-gray-400">Country</Label>
+                        <Input
+                          id="country"
+                          name="country"
+                          value={userData.country}
+                          onChange={handleInputChange}
+                          placeholder="Enter your country"
+                          className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleSaveChanges} className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white transition-colors rounded-full py-6">
+                    Save Changes
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="security" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Security Settings</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Manage your account security preferences</p>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">Password</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Change your password at any time</p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="text-blue-500 dark:text-blue-400 border-blue-500 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                        >
+                          Change password
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">Two-factor authentication</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Add an extra layer of security to your account</p>
+                        </div>
+                        <Switch
+                          checked={switches.twoFactorAuth}
+                          onCheckedChange={() => handleSwitchChange('twoFactorAuth')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">Security alerts</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Get notified about important security events</p>
+                        </div>
+                        <Switch
+                          checked={switches.securityAlerts}
+                          onCheckedChange={() => handleSwitchChange('securityAlerts')}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleSaveChanges} className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white transition-colors rounded-full py-6">
+                    Save Changes
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notifications" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Push notifications</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Control your mobile and desktop notifications</p>
+
+                    <div className="space-y-4">
+                      {[
+                        { name: 'appointmentReminders', title: 'Appointment reminders', description: 'Get notified about your upcoming appointments' },
+                        { name: 'medicationAlerts', title: 'Medication alerts', description: 'Receive timely medication reminders' },
+                        { name: 'healthTips', title: 'Health tips', description: 'Get daily health and wellness tips' },
+                        { name: 'testResults', title: 'Test results', description: 'Get notified when new test results are available' },
+                        { name: 'emergencyAlerts', title: 'Emergency alerts', description: 'Receive critical health-related alerts' },
+                      ].map(({ name, title, description }) => (
+                        <div key={name} className="flex items-center justify-between py-3 border-t border-gray-200 dark:
+border-gray-700">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+                          </div>
+                          <Switch
+                            checked={switches[name as keyof typeof switches]}
+                            onCheckedChange={() => handleSwitchChange(name)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <h3 className="font-medium text-gray-900 dark:text-white mb-2">Notification method</h3>
+                      <div className="space-y-4">
+                        {[
+                          { name: 'emailNotifications', title: 'Email notifications', description: 'Receive notifications via email' },
+                          { name: 'pushNotifications', title: 'Push notifications', description: 'Receive notifications on your devices' },
+                        ].map(({ name, title, description }) => (
+                          <div key={name} className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-gray-900 dark:text-white">{title}</h4>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+                            </div>
+                            <Switch
+                              checked={switches[name as keyof typeof switches]}
+                              onCheckedChange={() => handleSwitchChange(name)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleSaveChanges} className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white transition-colors rounded-full py-6">
+                    Save Changes
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="privacy" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Privacy Settings</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Control your data sharing preferences</p>
+
+                    <div className="space-y-4">
+                      {[
+                        { name: 'shareWithProviders', title: 'Share with healthcare providers', description: 'Allow your healthcare providers to access your data' },
+                        { name: 'shareAnonymizedData', title: 'Share anonymized data', description: 'Contribute anonymously to medical research' },
+                      ].map(({ name, title, description }) => (
+                        <div key={name} className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+                          </div>
+                          <Switch
+                            checked={switches[name as keyof typeof switches]}
+                            onCheckedChange={() => handleSwitchChange(name)}
+                          />
+                        </div>
+                      ))}
+
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">Profile visibility</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Control who can see your profile information</p>
+                        </div>
+                        <Select defaultValue="doctors">
+                          <SelectTrigger className="w-[180px] bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectValue placeholder="Select visibility" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-[#1e2732] border-gray-200 dark:border-gray-700">
+                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="doctors">Doctors Only</SelectItem>
+                            <SelectItem value="public">Public</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">Data retention</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Choose how long to keep your health data</p>
+                        </div>
+                        <Select defaultValue="2years">
+                          <SelectTrigger className="w-[180px] bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectValue placeholder="Select period" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-[#1e2732] border-gray-200 dark:border-gray-700">
+                            <SelectItem value="1year">1 Year</SelectItem>
+                            <SelectItem value="2years">2 Years</SelectItem>
+                            <SelectItem value="5years">5 Years</SelectItem>
+                            <SelectItem value="forever">Forever</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Account Deactivation</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Permanently remove your account and all data</p>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              className="w-full text-red-500 dark:text-red-400 border-red-500 dark:border-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
+                            >
+                              Deactivate account
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-white dark:bg-[#1e2732] border-gray-200 dark:border-gray-700">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-gray-900 dark:text-white">Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
+                                This action cannot be undone. This will permanently delete your account and remove your data from our servers.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="my-4">
+                              <Label htmlFor="deactivate-confirm" className="text-gray-500 dark:text-gray-400">Type DEACTIVATE to confirm:</Label>
+                              <Input
+                                id="deactivate-confirm"
+                                value={deactivateKeyword}
+                                onChange={(e) => setDeactivateKeyword(e.target.value)}
+                                className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                              />
+                            </div>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDeactivate}
+                                disabled={deactivateKeyword !== confirmKeyword}
+                                className="bg-red-500 hover:bg-red-600 text-white"
+                              >
+                                Deactivate
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="health" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Health Settings</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Manage your health information and goals</p>
+
+                    <div className="space-y-4">
+                      <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Personal Information</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="height" className="text-gray-500 dark:text-gray-400">Height</Label>
+                            <Input 
+                              id="height"
+                              name="height"
+                              value={userData.height}
+                              onChange={handleInputChange}
+                              placeholder="e.g., 5'10&quot;" 
+                              className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="weight" className="text-gray-500 dark:text-gray-400">Weight</Label>
+                            <Input 
+                              id="weight"
+                              name="weight"
+                              value={userData.weight}
+                              onChange={handleInputChange}
+                              placeholder="e.g., 160 lbs" 
+                              className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-4">Daily Step Goal</h3>
+                        <Slider 
+                          value={[healthSettings.stepGoal]}
+                          onValueChange={([value]) => handleHealthSettingChange('stepGoal', value)}
+                          max={20000} 
+                          step={1000}
+                          className="py-4"
+                        />
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Target: {healthSettings.stepGoal.toLocaleString()} steps</p>
+                      </div>
+
+                      <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Health Monitoring</h3>
+                        <div className="space-y-4">
+                          {[
+                            { name: 'heartRateMonitoring', title: 'Heart Rate Monitoring', description: 'Track your heart rate throughout the day' },
+                            { name: 'sleepTracking', title: 'Sleep Tracking', description: 'Monitor your sleep patterns' },
+                            { name: 'activityTracking', title: 'Activity Tracking', description: 'Track your daily physical activities' },
+                          ].map(({ name, title, description }) => (
+                            <div key={name} className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-gray-900 dark:text-white">{title}</h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+                              </div>
+                              <Switch
+                                checked={switches[name as keyof typeof switches]}
+                                onCheckedChange={() => handleSwitchChange(name)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Health Goals</h3>
+                        <div className="space-y-4">
+                          {[
+                            { name: 'weeklyExerciseGoal', label: 'Weekly Exercise Goal (hours)', min: 0, max: 168 },
+                            { name: 'dailyWaterIntakeGoal', label: 'Daily Water Intake Goal (glasses)', min: 0, max: 24 },
+                            { name: 'sleepGoal', label: 'Sleep Goal (hours)', min: 0, max: 12 },
+                          ].map(({ name, label, min, max }) => (
+                            <div key={name}>
+                              <Label htmlFor={name} className="text-gray-500 dark:text-gray-400">{label}</Label>
+                              <Input 
+                                id={name}
+                                type="number" 
+                                value={healthSettings[name as keyof typeof healthSettings]}
+                                onChange={(e) => handleHealthSettingChange(name, parseInt(e.target.value, 10))}
+                                min={min}
+                                max={max}
+                                className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-2">Medical Conditions</h3>
+                        <div className="space-y-4">
+                          {[
+                            { name: 'allergies', label: 'Allergies', placeholder: 'List any allergies' },
+                            { name: 'chronicConditions', label: 'Chronic Conditions', placeholder: 'List any chronic conditions' },
+                          ].map(({ name, label, placeholder }) => (
+                            <div key={name}>
+                              <Label htmlFor={name} className="text-gray-500 dark:text-gray-400">{label}</Label>
+                              <Input 
+                                id={name}
+                                value={healthSettings[name as keyof typeof healthSettings]}
+                                onChange={(e) => handleHealthSettingChange(name, e.target.value)}
+                                placeholder={placeholder}
+                                className="mt-2 bg-white dark:bg-[#15202b] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button onClick={handleSaveChanges} className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white transition-colors rounded-full py-6
+</ReactProject>
+">
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </motion.div>
+          </AnimatePresence>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
+
+
+
+
+
+
+
+// Dependencies: pnpm install lucide-react react-payment-inputs
+
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CreditCard, Wallet } from "lucide-react";
+import { usePaymentInputs } from "react-payment-inputs";
+import images, { type CardImages } from "react-payment-inputs/images";
+
+export default function DialogDemo() {
+  const { meta, getCardNumberProps, getExpiryDateProps, getCVCProps, getCardImageProps } =
+    usePaymentInputs();
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline">Card details</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <div className="flex flex-col gap-2">
+          <div
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border"
+            aria-hidden="true"
+          >
+            <Wallet className="opacity-80" size={16} strokeWidth={2} />
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-left">Update your card</DialogTitle>
+            <DialogDescription className="text-left">
+              Your new card will replace your current card.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <form className="space-y-5">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nameOnCard">Name on card</Label>
+              <Input id="nameOnCard" type="text" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cardNumber">Card Number</Label>
+              <div className="relative">
+                <Input {...getCardNumberProps()} className="peer pe-9 [direction:inherit]" />
+                <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center justify-center pe-3 text-muted-foreground/80 peer-disabled:opacity-50">
+                  {meta.cardType ? (
+                    <svg
+                      className="overflow-hidden rounded-sm"
+                      {...getCardImageProps({ images: images as unknown as CardImages })}
+                      width={20}
+                    />
+                  ) : (
+                    <CreditCard size={16} strokeWidth={2} aria-hidden="true" />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="expiryDate">Expiry date</Label>
+                <Input className="[direction:inherit]" {...getExpiryDateProps()} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="cvc">CVC</Label>
+                <Input className="[direction:inherit]" {...getCVCProps()} />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox id="card-primary" />
+            <Label htmlFor="card-primary" className="font-normal text-muted-foreground">
+              Set as default payment method
+            </Label>
+          </div>
+          <Button type="button" className="w-full">
+            Update card
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
