@@ -634,19 +634,6 @@ export default function Dashboard() {
         </div>
       </CardContent>
     </Card>
-
-            <br />
-
-            {/* Other content */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <HeartRate />
-                </div>
-                <div className="space-y-4">
-                <HealthRhythmCard />
-                  <MedicationEfficacyCard />
-                </div>
-              </div>
               <br />
             {/* Rest of the content */}
             

@@ -66,7 +66,7 @@ from .models import (
     Subscription, HospitalSubscription, PlatformRevenue, PlatformStatistics,
     ResearchProject, ResearchCriteria, ResearchCohort, CohortMembership,
     DataPoint, AnalyticsReport, AIModel, HospitalAudit,SurgeryType, SurgerySchedule, SurgicalTeam, PreOpAssessment,
-    SurgeryReport, PostOpCare, SurgeryConsent, Message, TelemedicineSession, Resource
+    SurgeryReport, PostOpCare, SurgeryConsent, Message, TelemedicineSession, Resource, GPPractice
 )
 
 
@@ -86,7 +86,7 @@ from .serializers import (
     ExternalSystemSerializer, IntegrationLogSerializer,
     MedicalDeviceSerializer, DeviceReadingSerializer, SurgeryTypeSerializer, SurgeryScheduleSerializer, SurgicalTeamSerializer,
     PreOpAssessmentSerializer, SurgeryReportSerializer, PostOpCareSerializer,
-    SurgeryConsentSerializer, RecordShareSerializer, ResourceSerializer
+    SurgeryConsentSerializer, RecordShareSerializer, ResourceSerializer, GPPracticeSerializer
 )
 from .utils.social_auth import verify_google_token, verify_apple_token
 
@@ -368,8 +368,7 @@ class ShareMedicalRecordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ================END OF RECORD SHARING===========================
-# Update the HealthAnalyticsViewSet
-# Add these functions to your existing views.py
+# Update the HealthAnalyticsViewSet as follows:
 
 class HealthAnalyticsViewSet(viewsets.ViewSet):
     """ViewSet for comprehensive health analytics data."""
@@ -1135,7 +1134,6 @@ class RegisterView(APIView):
         print("Validation errors:", serializer.errors)  # Debug log
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class VerifyEmailView(APIView):
     def get(self, request, token=None):  # Add token parameter
         try:
@@ -1181,7 +1179,6 @@ class VerifyEmailView(APIView):
             print(f"Verification error: {str(e)}")
             return HttpResponseRedirect("http://localhost:3000/auth/verify-email?error=verification_failed")
         
-
 class LoginView(APIView):
     def post(self, request):
         email = request.data.get('email')
@@ -1488,6 +1485,59 @@ class LogoutView(APIView):
             print(f"Logout error: {str(e)}")  # Debug log
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# ============= GP PRACTICE ViewSets =================
+
+class GPPracticeViewSet(viewsets.ModelViewSet):
+    serializer_class = GPPracticeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = GPPractice.objects.filter(is_accepting_patients=True)
+        
+        # Filter by location if provided
+        postcode = self.request.query_params.get('postcode', None)
+        city = self.request.query_params.get('city', None)
+        
+        if postcode:
+            queryset = queryset.filter(postcode=postcode)
+        if city:
+            queryset = queryset.filter(city=city)
+            
+        return queryset
+
+    @action(detail=True, methods=['post'])
+    def register_patient(self, request, pk=None):
+        practice = self.get_object()
+        user = request.user
+
+        # Check if user already has a GP
+        if user.has_registered_gp:
+            return Response(
+                {"error": "Already registered with a GP practice"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create registration
+        try:
+            PatientGPRegistration.objects.create(
+                patient=user,
+                practice=practice,
+                status='PENDING'
+            )
+            
+            user.has_registered_gp = True
+            user.current_gp_practice = practice
+            user.save()
+
+            return Response({
+                "message": "GP registration request submitted successfully",
+                "practice": GPPracticeSerializer(practice).data
+            })
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 # ============= Hospital Management ViewSets =============
 class HospitalRegistrationViewSet(viewsets.ModelViewSet):
@@ -2262,8 +2312,7 @@ class PlatformRevenueViewSet(viewsets.ModelViewSet):
         )
         return Response(stats)
 
-# ============= Messaging ViewSets =============
-
+# ============= Messaging ViewSets =================
 # Communication ViewSets
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
@@ -2342,7 +2391,7 @@ class ProtocolViewSet(viewsets.ModelViewSet):
             department=self.request.user.hospitalstaff.department
         )
 
-# Device Management ViewSets
+#===========Device Management ViewSets ================
 class MedicalDeviceViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalDeviceSerializer
     permission_classes = [IsAuthenticated, IsHospitalStaff]
@@ -2387,10 +2436,7 @@ class DeviceReadingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-
 # ============== RESOURCES, Research and Analytics ViewSets ===================
-
-# views.py
 class ResourceViewSet(viewsets.ModelViewSet):
     serializer_class = ResourceSerializer
     permission_classes = [IsAuthenticated]

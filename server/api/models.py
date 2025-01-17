@@ -83,6 +83,14 @@ class UserProfile(AbstractUser):
         default='patient'
     )
 
+    has_registered_gp = models.BooleanField(default=False)
+    current_gp_practice = models.ForeignKey('GPPractice', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='registered_patients'
+    )
+
     # Enhanced medical fields
     blood_type = models.CharField(
         max_length=5,
@@ -141,6 +149,79 @@ class UserProfile(AbstractUser):
         if view_type in ['patient', 'professional']:
             self.last_active_view = view_type
             self.save(update_fields=['last_active_view']) 
+
+
+# ============= General Practice System =================
+# 
+# This system is used to manage general practice clinics and patient registration
+class GPPractice(models.Model):
+    name = models.CharField(max_length=200)
+    registration_number = models.CharField(max_length=50, unique=True)
+    address = models.TextField()
+    contact_number = models.CharField(max_length=20)
+    email = models.EmailField()
+    capacity = models.IntegerField()  # Maximum number of registered patients
+    is_accepting_patients = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class GeneralPractitioner(models.Model):
+    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
+    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE)
+    license_number = models.CharField(max_length=50, unique=True)
+    specializations = models.JSONField()  # Store GP's specific areas of expertise
+    availability_schedule = models.JSONField()  # Store weekly schedule
+    max_daily_appointments = models.IntegerField(default=20)
+    is_accepting_appointments = models.BooleanField(default=True)
+    
+class PatientGPRegistration(models.Model):
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE)
+    gp = models.ForeignKey(GeneralPractitioner, on_delete=models.SET_NULL, null=True)
+    registration_date = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('ACTIVE', 'Active'),
+            ('PENDING', 'Pending'),
+            ('TRANSFERRED', 'Transferred'),
+            ('INACTIVE', 'Inactive')
+        ]
+    )
+    previous_practice = models.ForeignKey(
+        GPPractice, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='transferred_patients'
+    )
+
+class InitialConsultation(models.Model):
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    gp = models.ForeignKey(GeneralPractitioner, on_delete=models.CASCADE)
+    consultation_date = models.DateTimeField()
+    chief_complaint = models.TextField()
+    symptoms = models.JSONField()
+    initial_assessment = models.TextField()
+    priority_level = models.CharField(
+        max_length=20,
+        choices=[
+            ('ROUTINE', 'Routine'),
+            ('URGENT', 'Urgent'),
+            ('EMERGENCY', 'Emergency')
+        ]
+    )
+    referral_needed = models.BooleanField(default=False)
+    referral_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('SPECIALIST', 'Specialist'),
+            ('LABORATORY', 'Laboratory'),
+            ('PHARMACY', 'Pharmacy'),
+            ('HOSPITAL', 'Hospital')
+        ],
+        null=True, 
+        blank=True
+    )            
 
 # ============= Professional Profile Tools =============
 
@@ -335,11 +416,109 @@ class Appointment(models.Model):
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
+    gp = models.ForeignKey('GeneralPractitioner', on_delete=models.SET_NULL, null=True)
+    initial_consultation = models.ForeignKey('InitialConsultation', on_delete=models.SET_NULL, null=True)
+    appointment_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('GP_ROUTINE', 'GP Routine'),  # This will be our default
+            ('GP_FOLLOWUP', 'GP Follow-up'),
+            ('SPECIALIST', 'Specialist'),
+            ('EMERGENCY', 'Emergency'),
+            ('VACCINATION', 'Vaccination'),
+            ('SCREENING', 'Screening')
+        ],
+        default='GP_ROUTINE'  # This line explicitly sets the default
+    )
+    booking_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('PHONE', 'Phone'),
+            ('ONLINE', 'Online'),
+            ('GP_REFERRAL', 'GP Referral'),
+            ('EMERGENCY', 'Emergency')
+        ],
+        default='ONLINE'  # Setting default booking method
+    )
+    priority_level = models.CharField(
+        max_length=20,
+        choices=[
+            ('ROUTINE', 'Routine'),
+            ('URGENT', 'Urgent'),
+            ('EMERGENCY', 'Emergency')
+        ],
+        default='ROUTINE'
+    )
+    referral = models.ForeignKey('Referral', on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         return f"{self.patient.get_full_name()} - {self.appointment_date}"
 
-# ============= Medical Records System =============
+# ============= Referral System =================
+class Referral(models.Model):
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    referring_gp = models.ForeignKey(GeneralPractitioner, on_delete=models.CASCADE)
+    referral_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('SPECIALIST', 'Specialist'),
+            ('LABORATORY', 'Laboratory'),
+            ('PHARMACY', 'Pharmacy'),
+            ('HOSPITAL', 'Hospital')
+        ]
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('ROUTINE', 'Routine'),
+            ('URGENT', 'Urgent'),
+            ('EMERGENCY', 'Emergency')
+        ]
+    )
+    reason = models.TextField()
+    notes = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('ACCEPTED', 'Accepted'),
+            ('COMPLETED', 'Completed'),
+            ('REJECTED', 'Rejected')
+        ]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class WaitingList(models.Model):
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    service_type = models.CharField(max_length=100)
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('ROUTINE', 'Routine'),
+            ('URGENT', 'Urgent'),
+            ('EMERGENCY', 'Emergency')
+        ]
+    )
+    added_date = models.DateTimeField(auto_now_add=True)
+    estimated_wait_time = models.DurationField()
+    notes = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('ACTIVE', 'Active'),
+            ('SCHEDULED', 'Scheduled'),
+            ('CANCELLED', 'Cancelled'),
+            ('COMPLETED', 'Completed')
+        ]
+    )
+    scheduled_date = models.DateTimeField(null=True, blank=True)
+    scheduled_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f"{self.patient.get_full_name()} - {self.service_type}"
+
+# ============= Medical Records System =================
 class MedicalRecord(models.Model):
     patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='medical_records')
     provider = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
@@ -896,7 +1075,6 @@ class Resource(models.Model):
         """Method to retrieve keywords as a Python list."""
         return json.loads(self.keywords)
 
-
 class ResearchProject(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -923,7 +1101,79 @@ class ResearchProject(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.hospital.name}"
+class ResearchField(models.Model):
+    """Dynamic research fields created by admin"""
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    category = models.CharField(max_length=100)
+    required_qualifications = models.JSONField()
+    ethical_guidelines = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
+class ResearchMethodology(models.Model):
+    """Research methodologies for different fields"""
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    field = models.ForeignKey(ResearchField, on_delete=models.CASCADE)
+    steps = models.JSONField()
+    required_resources = models.JSONField()
+    validation_criteria = models.JSONField()
+
+class ResearchEthicsApproval(models.Model):
+    """Track ethics approvals for research projects"""
+    project = models.OneToOneField(ResearchProject, on_delete=models.CASCADE)
+    application_date = models.DateTimeField(auto_now_add=True)
+    approval_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending Review'),
+            ('APPROVED', 'Approved'),
+            ('REJECTED', 'Rejected'),
+            ('REVISIONS', 'Needs Revisions')
+        ]
+    )
+    committee_feedback = models.TextField(null=True, blank=True)
+    approval_date = models.DateTimeField(null=True, blank=True)
+    expiry_date = models.DateTimeField(null=True, blank=True)
+
+class ResearchFunding(models.Model):
+    """Track research funding and grants"""
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE)
+    funding_source = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    requirements = models.JSONField()
+    reporting_schedule = models.JSONField()
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('ACTIVE', 'Active'),
+            ('PENDING', 'Pending'),
+            ('COMPLETED', 'Completed'),
+            ('TERMINATED', 'Terminated')
+        ]
+    )
+
+class ResearchCollaboration(models.Model):
+    """Track collaborations between institutions"""
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE)
+    institution = models.ForeignKey(Hospital, on_delete=models.CASCADE)
+    collaboration_type = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    responsibilities = models.JSONField()
+    resources_committed = models.JSONField()
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('ACTIVE', 'Active'),
+            ('PENDING', 'Pending'),
+            ('COMPLETED', 'Completed'),
+            ('TERMINATED', 'Terminated')
+        ]
+    )
 class ResearchCriteria(models.Model):
     """Defines inclusion/exclusion criteria for research"""
     project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, related_name='criteria')
