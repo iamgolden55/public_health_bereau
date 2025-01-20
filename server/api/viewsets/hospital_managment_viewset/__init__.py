@@ -1,0 +1,1 @@
+from .class_views import HospitalRegistrationViewSet, HospitalStaffViewSet, HospitalAffiliationViewSet, HospitalViewSet

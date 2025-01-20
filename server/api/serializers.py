@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
-from .models import GPPractice, GeneralPractitioner, PatientGPRegistration, InitialConsultation
+from .models import GPPractice, GeneralPractitioner, PatientGPRegistration
 from .models import (
     Department, MedicalCase, MedicalImage, UserProfile, Hospital, MedicalProfessional, MedicalRecord, AccessLog,
     HospitalRegistration, HospitalStaff, HospitalAffiliation, Appointment,
@@ -381,153 +381,22 @@ class AccessLogSerializer(serializers.ModelSerializer):
 # GP Management Serializers
 
 class GPPracticeSerializer(serializers.ModelSerializer):
-    registered_patients_count = serializers.SerializerMethodField()
-    
     class Meta:
         model = GPPractice
-        fields = [
-            'id',
-            'name',
-            'registration_number',
-            'address',
-            'contact_number',
-            'email',
-            'capacity',
-            'is_accepting_patients',
-            'registered_patients_count',
-            'created_at',
-            'updated_at'
-        ]
-        read_only_fields = ['registered_patients_count']
-
-    def get_registered_patients_count(self, obj):
-        return obj.registered_patients.count()
+        fields = '__all__'
 
 class GeneralPractitionerSerializer(serializers.ModelSerializer):
     user_details = UserProfileSerializer(source='user', read_only=True)
     practice_details = GPPracticeSerializer(source='practice', read_only=True)
-    
+
     class Meta:
         model = GeneralPractitioner
-        fields = [
-            'id',
-            'user_details',
-            'practice_details',
-            'license_number',
-            'specializations',
-            'availability_schedule',
-            'max_daily_appointments',
-            'is_accepting_appointments'
-        ]
-        read_only_fields = ['user_details']
+        fields = '__all__'
 
 class PatientGPRegistrationSerializer(serializers.ModelSerializer):
-    patient_details = UserProfileSerializer(source='patient', read_only=True)
-    practice_details = GPPracticeSerializer(source='practice', read_only=True)
-    gp_details = GeneralPractitionerSerializer(source='gp', read_only=True)
-    
     class Meta:
         model = PatientGPRegistration
-        fields = [
-            'id',
-            'patient_details',
-            'practice_details',
-            'gp_details',
-            'registration_date',
-            'status',
-            'previous_practice'
-        ]
-        read_only_fields = ['registration_date']
-
-    def validate(self, data):
-        """
-        Custom validation to ensure:
-        1. Practice is accepting patients
-        2. Practice hasn't exceeded capacity
-        3. Patient isn't already registered elsewhere
-        """
-        practice = data.get('practice')
-        patient = data.get('patient')
-
-        if not practice.is_accepting_patients:
-            raise serializers.ValidationError(
-                "This practice is not accepting new patients at the moment."
-            )
-
-        current_patients = practice.registered_patients.count()
-        if current_patients >= practice.capacity:
-            raise serializers.ValidationError(
-                "This practice has reached its patient capacity."
-            )
-
-        existing_registration = PatientGPRegistration.objects.filter(
-            patient=patient,
-            status='ACTIVE'
-        ).exists()
-        
-        if existing_registration:
-            raise serializers.ValidationError(
-                "Patient already has an active GP registration."
-            )
-
-        return data
-
-class InitialConsultationSerializer(serializers.ModelSerializer):
-    patient_details = UserProfileSerializer(source='patient', read_only=True)
-    gp_details = GeneralPractitionerSerializer(source='gp', read_only=True)
-    
-    class Meta:
-        model = InitialConsultation
-        fields = [
-            'id',
-            'patient_details',
-            'gp_details',
-            'consultation_date',
-            'chief_complaint',
-            'symptoms',
-            'initial_assessment',
-            'priority_level',
-            'referral_needed',
-            'referral_type'
-        ]
-
-    def validate_consultation_date(self, value):
-        """
-        Validate that the consultation date is not in the past
-        """
-        if value < timezone.now():
-            raise serializers.ValidationError(
-                "Consultation date cannot be in the past."
-            )
-        return value
-
-    def validate(self, data):
-        """
-        Custom validation to ensure:
-        1. GP is available at the requested time
-        2. GP hasn't exceeded daily appointment limit
-        """
-        gp = data.get('gp')
-        consultation_date = data.get('consultation_date')
-
-        # Check GP availability
-        if not gp.is_accepting_appointments:
-            raise serializers.ValidationError(
-                "This GP is not accepting appointments at the moment."
-            )
-
-        # Check if GP has reached daily appointment limit
-        daily_appointments = InitialConsultation.objects.filter(
-            gp=gp,
-            consultation_date__date=consultation_date.date()
-        ).count()
-
-        if daily_appointments >= gp.max_daily_appointments:
-            raise serializers.ValidationError(
-                "GP has reached maximum appointments for this day."
-            )
-
-        return data
+        fields = '__all__'
 
 # Communication Serializers
 class MessageSerializer(serializers.ModelSerializer):

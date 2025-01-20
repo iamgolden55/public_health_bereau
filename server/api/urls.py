@@ -3,14 +3,13 @@ from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
 from rest_framework.schemas import get_schema_view
-from . import views  # or more specifically
-from .views import analytics_dashboard, share_medical_record, ShareMedicalRecordView, update_user, get_user, LogoutView, update_dashboard_preference
+from .viewsets import update_user, get_user, LogoutView, update_dashboard_preference
 
 
 
 
 
-from .views import (
+from .viewsets import (
     # Authentication views
     RegisterView, VerifyEmailView, LoginView,
     PasswordResetView, VerifyResetTokenView,
@@ -23,6 +22,9 @@ from .views import (
     HospitalViewSet,
     MedicalRecordViewSet,
     PatientAccessViewSet,
+
+    # Appointment viewsets
+    AppointmentViewSet,
     
     # Communication viewsets
     MessageViewSet,
@@ -40,6 +42,11 @@ from .views import (
     MedicalDeviceViewSet,
     DeviceReadingViewSet,
     
+    # General Practice viewsets
+    GPPracticeViewSet,
+    GeneralPractitionerViewSet,
+    PatientGPRegistrationViewSet,
+
     # Integration viewsets
     #ExternalSystemViewSet,
     #IntegrationLogViewSet,
@@ -72,6 +79,14 @@ router.register(r'medical-professionals', MedicalProfessionalViewSet, basename='
 router.register(r'hospitals', HospitalViewSet, basename='hospital')
 router.register(r'medical-records', MedicalRecordViewSet, basename='medical-record')
 router.register(r'patient-access', PatientAccessViewSet, basename='patient-access')
+
+# Appointment endpoints
+router.register(r'appointments', AppointmentViewSet, basename='appointment')
+
+# General Practice endpoints
+router.register(r'gp-practices', GPPracticeViewSet, basename='gp-practice')
+router.register(r'general-practitioners', GeneralPractitionerViewSet, basename='general-practitioner')
+router.register(r'gp-registrations', PatientGPRegistrationViewSet, basename='gp-registration')
 
 # Communication endpoints
 router.register(r'messages', MessageViewSet, basename='message')
@@ -120,10 +135,9 @@ urlpatterns = [
     path('verify-reset-token/', VerifyResetTokenView.as_view(), name='verify-reset-token'),
     path('resend-verification/', ResendVerificationView.as_view(), name='resend-verification'),
     path('social-auth/<str:provider>/', SocialAuthView.as_view(), name='social-auth'),
-    path('api/analytics/dashboard/', analytics_dashboard, name='analytics-dashboard'),
     path('logout/', LogoutView.as_view(), name='logout'),
     # API endpoint for sharing medical records
-    path('share-medical-record/', share_medical_record, name='share-medical-record'),
+    
 
     # Include all router URLs
     path('', include(router.urls)),
@@ -133,14 +147,3 @@ urlpatterns = [
     #    path('department/<int:department_id>/', get_department_analytics, name='department-analytics'),
   #  ])),
 ]
-
-# API Documentation
-#if settings.DEBUG:
-  #  urlpatterns += [
-   #     path('docs/', include_docs_urls(
-    #        title='Healthcare API Documentation',
-    #        description='API documentation for Healthcare System'
-    #    )),
-    #    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0)),
-     #   path('redoc/', schema_view.with_ui('redoc', cache_timeout=0)),
-  #  ]

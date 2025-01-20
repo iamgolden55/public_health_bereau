@@ -23,7 +23,7 @@ export const QuickStatCard = ({
         <div className="text-2xl font-bold">{value}</div>
         <p className={`text-xs ${trendColor} flex items-center gap-1`}>
           <span>{trendIcon}</span>
-          {change} from last period
+          {change} from last periodssss
         </p>
       </CardContent>
     </Card>

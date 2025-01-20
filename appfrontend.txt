@@ -1,0 +1,155 @@
+app
+├── [role]
+│   ├── hospital
+│   │   └── page.tsx
+│   ├── layout.tsx
+│   ├── patient
+│   │   ├── AddSurgeryModal.css
+│   │   ├── HealthVideoLibrary.tsx
+│   │   ├── ViewSurgeryModal.tsx
+│   │   ├── appointments.tsx
+│   │   ├── chat.tsx
+│   │   ├── client-layout.tsx
+│   │   ├── components
+│   │   │   └── ticket-detail.tsx
+│   │   ├── consultation.tsx
+│   │   ├── creative-medical-cards.tsx
+│   │   ├── dashboard-skeleton.tsx
+│   │   ├── emergency.tsx
+│   │   ├── gp-usage.tsx
+│   │   ├── health-video-library-skeleton.tsx
+│   │   ├── loading-context.tsx
+│   │   ├── medical-records.tsx
+│   │   ├── medical-surgerymodal.tsx
+│   │   ├── new.txt
+│   │   ├── page.tsx
+│   │   ├── settings
+│   │   │   └── AccountSettingsTab.tsx
+│   │   ├── settings.tsx
+│   │   ├── test.txt
+│   │   └── ticket-selector.tsx
+│   ├── professional
+│   │   ├── HealthVideoLibrary.tsx
+│   │   ├── analytics.tsx
+│   │   ├── components
+│   │   │   └── analytics
+│   │   │       ├── QuickStatCard.tsx
+│   │   │       ├── index.tsx
+│   │   │       ├── mock-data.ts
+│   │   │       └── types.ts
+│   │   ├── overview.tsx
+│   │   ├── page.tsx
+│   │   ├── patients.tsx
+│   │   ├── quick-access
+│   │   │   ├── AdvancedFeatures.tsx
+│   │   │   ├── Clonespec.txt
+│   │   │   ├── EmergencyCare.tsx
+│   │   │   ├── SpecialtyClinic.tsx
+│   │   │   └── TelemedicineApp.tsx
+│   │   ├── reports.tsx
+│   │   ├── resources
+│   │   │   └── constants.ts
+│   │   ├── resources.tsx
+│   │   └── settings
+│   │       ├── PracticeSettings.tsx
+│   │       ├── ProfileSettings.tsx
+│   │       └── SecuritySettings.tsx
+│   ├── researcher
+│   │   └── page.tsx
+│   └── superadmin
+│       └── page.tsx
+├── api
+│   ├── african.json
+│   └── videos
+│       └── route.ts
+├── auth
+│   ├── layout.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── phb-splash-screen.tsx
+│   ├── register
+│   │   ├── components
+│   │   │   └── RegistrationSteps.tsx
+│   │   └── page.tsx
+│   └── verify-email
+│       └── page.tsx
+├── components
+│   ├── HealthAIChat.tsx
+│   ├── LoadingScreen.tsx
+│   ├── NavUser.tsx
+│   ├── VerificationStatus.tsx
+│   ├── VerificationStep.tsx
+│   ├── YouTubeEmbed.tsx
+│   ├── cardpayments.tsx
+│   └── custom-toast.tsx
+├── context
+│   └── user-context.tsx
+├── favicon.ico
+├── fonts
+│   ├── GeistMonoVF.woff
+│   ├── GeistVF.woff
+│   └── backupvideo.txt
+├── globals.css
+├── hooks
+│   └── useViewSwitcher.ts
+├── layout.tsx
+├── middleware.ts
+├── page.tsx
+├── providers.tsx
+├── services
+│   ├── index.ts
+│   └── medical
+│       ├── appointments.ts
+│       └── index.ts
+├── stores
+│   ├── surgeryStore.ts
+│   └── surgeryVerificationStore.ts
+├── types
+│   ├── billing
+│   │   ├── index.ts
+│   │   ├── insurance.ts
+│   │   ├── payments.ts
+│   │   └── platform.ts
+│   ├── communication
+│   │   ├── index.ts
+│   │   ├── messages.ts
+│   │   ├── notifications.ts
+│   │   └── tasks.ts
+│   ├── core
+│   │   ├── auth.ts
+│   │   ├── index.ts
+│   │   ├── responses.ts
+│   │   └── user.ts
+│   ├── devices
+│   │   ├── devices.ts
+│   │   ├── index.ts
+│   │   └── integration.ts
+│   ├── hospital
+│   │   ├── affiliations.ts
+│   │   ├── index.ts
+│   │   └── staff.ts
+│   ├── index.ts
+│   ├── medical
+│   │   ├── api.ts
+│   │   ├── appointments.ts
+│   │   ├── base.ts
+│   │   ├── gp.ts
+│   │   ├── index.ts
+│   │   ├── professional.ts
+│   │   ├── records.ts
+│   │   └── surgery.ts
+│   └── research
+│       ├── ai.ts
+│       ├── analytics.ts
+│       ├── index.ts
+│       └── projects.ts
+└── utils
+    ├── analytics-helpers.ts
+    ├── errors
+    │   ├── ErrorBoundary.tsx
+    │   ├── ErrorFallback.tsx
+    │   ├── errorHandlers.ts
+    │   └── types.ts
+    └── surgery-validators.ts
+
+38 directories, 115 files

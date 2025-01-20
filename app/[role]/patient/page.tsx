@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import TwitterStyleMedicalSettings from './settings'  // if it's in the app folder
 import HealthVideoLibrary from "./HealthVideoLibrary"
+import TicketSelector from "./ticket-selector";
 import HeartRate from "./gp-usage"
 import { HealthRhythmCard, MedicationEfficacyCard } from './creative-medical-cards'
 import Emergency from "./emergency"
@@ -505,6 +506,7 @@ export default function Dashboard() {
               </motion.h2>
               </h1>
             </div>
+            
             {/* Health Summary Card */}
             <Card className="w-full bg-white dark:bg-gray-800 shadow-lg rounded-3xl overflow-hidden dark:border-gray-700">
       <CardContent className="p-6">
@@ -628,19 +630,54 @@ export default function Dashboard() {
 
         <div className="mt-6 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>Last updated: Just now</span>
+            <span>Last updated: {new Date().toLocaleDateString()}</span>
             <span>Next checkup: 3 months</span>
           </div>
         </div>
       </CardContent>
     </Card>
-              <br />
-            {/* Rest of the content */}
             
+    <div className="flex flex-col md:flex-row md:justify-between md:items-stretch gap-4 p-4">
+  {/* Desktop Layout */}
+  <div className="hidden md:flex md:w-[50%]">
+    <Card className="w-full">
+      <CardContent className="p-4">
+        <TicketSelector />
+      </CardContent>
+    </Card>
+  </div>
+  <div className="hidden md:flex md:w-[50%]">
+    <Card className="w-full">
+      <CardContent className="p-4">
+        <img
+          src="https://media.licdn.com/dms/image/v2/D5610AQE1qBNky-3pMA/image-shrink_800/image-shrink_800/0/1729134902341?e=2147483647&v=beta&t=dbJiL1HVNxy8VapJ2r7Mq6v8VPULQ0Kado174Ku1upo"
+          alt="Right Side Content"
+          className="rounded-lg shadow-md object-cover w-full h-full"
+        />
+      </CardContent>
+    </Card>
+  </div>
 
+  {/* Mobile Layout */}
+  <div className="flex flex-col md:hidden gap-4 w-full">
+    <Card className="w-full">
+      <CardContent className="p-6">
+        <TicketSelector />
+      </CardContent>
+    </Card>
+    <Card className="w-full">
+      <CardContent className="p-4">
+        <img
+          src="https://media.licdn.com/dms/image/v2/D5610AQE1qBNky-3pMA/image-shrink_800/image-shrink_800/0/1729134902341?e=2147483647&v=beta&t=dbJiL1HVNxy8VapJ2r7Mq6v8VPULQ0Kado174Ku1upo"
+          alt="Right Side Content"
+          className="rounded-lg shadow-md object-cover w-full"
+        />
+      </CardContent>
+    </Card>
+  </div>
+</div>
 
-
-            {/* Upcoming Events */}
+         {/* Upcoming Events */}
             <div className="mb-6 rounded-xl bg-white p-6 shadow dark:bg-gray-800 dark:text-white">
               <h2 className="mb-4 text-xl font-semibold">Upcoming Health-Care Events</h2>
               <div className="space-y-4">

@@ -1,287 +1,284 @@
-'use client'
+// app/[role]/patient/appointments.tsx
+'use client';
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Calendar, Clock, MapPin, Search, Plus, ChevronRight, X, AlertCircle, Filter, Bell, FileText, MoreVertical } from 'lucide-react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { useUser } from '@/app/context/user-context'
-
-// Define types for Appointment and Doctor
-interface Appointment {
-  id: number
-  title: string
-  doctor: string
-  location: string
-  date: string
-  time: string
-  status: 'upcoming' | 'completed' | 'canceled'
-  avatar: string
-  preparationProgress: number
-  notes?: string
-  reminders: boolean
-  recurrence?: string
-  preparationTasks?: { task: string, completed: boolean }[]
-  rating?: number
-  feedback?: string
-  patientName?: string
-  patientId?: string
-}
-
-interface Doctor {
-  name: string
-  specialty: string
-  bio: string
-}
+import { useState, useEffect } from 'react';
+import { AppointmentService } from '@/app/services';
+import { useUser } from '@/app/context/user-context';
+import { useToast } from '@/components/ui/use-toast';
+import { Appointment, AppointmentFormData, GPPractice } from '@/app/types/medical';
+import { GlobalErrorBoundary } from '@/app/utils/errors/ErrorBoundary';
+import { AppointmentCard } from './components/AppointmentCard';
+import { AppointmentForm } from './components/AppointmentForm';
+import { GPRegistrationDialog } from './components/GPRegistrationDialog';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { 
+  Search, 
+  Plus, 
+  AlertTriangle,
+  Loader2,
+  Calendar 
+} from 'lucide-react';
 
 export default function AppointmentsPage() {
+  // Hooks
+  const { userData, loading: userLoading } = useUser();
+  const { toast } = useToast();
 
+  // State
+  const [loading, setLoading] = useState(true);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>(['SCHEDULED', 'COMPLETED', 'CANCELLED']);
+  const [showGPRegistrationDialog, setShowGPRegistrationDialog] = useState(false);
+  const [availableGPPractices, setAvailableGPPractices] = useState<GPPractice[]>([]);
+  const [isBookingEnabled, setIsBookingEnabled] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddingAppointment, setIsAddingAppointment] = useState(false);
 
-   // Add user context
-  const { userData, loading } = useUser()
+  // Initialize data
+  useEffect(() => {
+    const initializeData = async () => {
+      if (!userLoading && userData) {
+        try {
+          setLoading(true);
+          // Check GP registration status
+          const regResponse = await AppointmentService.getGPRegistrationStatus();
+          const hasActiveRegistration = regResponse.data?.status === 'ACTIVE';
+          setIsBookingEnabled(hasActiveRegistration);
 
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: 1,
-      title: "Annual Check-up",
-      doctor: "Dr. Emily Watson",
-      location: "Central Hospital, Room 302",
-      date: "2024-11-15",
-      time: "10:00 AM",
-      status: 'upcoming',
-      avatar: "/placeholder.svg?height=40&width=40",
-      preparationProgress: 75,
-      notes: "Bring recent lab results",
-      reminders: true,
-      preparationTasks: [{ task: "Bring recent lab results", completed: false }],
-      // Add patient info from userData
-      patientName: userData?.first_name + " " + userData?.last_name || 'Loading...',
-      patientId: userData?.hpn || 'Loading...'
-    },
-    // Add more appointments...
-  ])
-
-
-
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string[]>(['upcoming', 'completed', 'canceled'])
-  const [selectedTab, setSelectedTab] = useState('all')
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
-  const [recurrence, setRecurrence] = useState('')
-
-  const doctors: Doctor[] = [
-    { name: "Dr. Emily Watson", specialty: "General Practitioner", bio: "Expert in family medicine with 15 years of experience." },
-    // Add more doctor profiles here
-  ]
-
-  const filteredAppointments = appointments.filter(appointment =>
-    (appointment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    appointment.doctor.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    statusFilter.includes(appointment.status) &&
-    (selectedTab === 'all' || (selectedTab === 'reminders' && appointment.reminders))
-  )
-
-  const removeAppointment = (id: number) => {
-    setAppointments(appointments.filter(app => app.id !== id))
-  }
-
-  const toggleReminder = (id: number) => {
-    setAppointments(appointments.map(app =>
-      app.id === id ? { ...app, reminders: !app.reminders } : app
-    ))
-  }
-
-  const toggleTaskCompletion = (appointmentId: number, taskIndex: number, completed: boolean) => {
-    setAppointments(appointments.map(app => {
-      if (app.id === appointmentId && app.preparationTasks) {
-        const updatedTasks = [...app.preparationTasks];
-        updatedTasks[taskIndex].completed = completed;
-        return { ...app, preparationTasks: updatedTasks };
+          if (!hasActiveRegistration) {
+            // Load available GP practices
+            const practicesResponse = await AppointmentService.getGPPractices();
+            if (practicesResponse.data) {
+              setAvailableGPPractices(Array.isArray(practicesResponse.data) ? practicesResponse.data : []);
+            } else {
+              setAvailableGPPractices([]);
+            }
+          } else {
+            // Load existing appointments
+            const appointmentsResponse = await AppointmentService.getAppointments();
+            if (appointmentsResponse.data) {
+              setAppointments(appointmentsResponse.data);
+            }
+          }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to load initial data",
+            variant: "destructive"
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-      return app;
-    }));
+    };
+
+    initializeData();
+  }, [userLoading, userData, toast]);
+
+  // Handle GP Registration
+  const handleGPRegistration = async (practiceId: string) => {
+    if (!userData?.id) return;
+    
+    try {
+      setIsSubmitting(true);
+      const response = await AppointmentService.registerWithGP(practiceId, userData.id);
+      
+      if (response.status === 200) {
+        toast({
+          title: "Success",
+          description: "GP registration request submitted successfully",
+        });
+        setShowGPRegistrationDialog(false);
+      } else {
+        throw new Error(response.error || 'Registration failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to register with GP practice",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const updateFeedback = (id: number, feedback: string) => {
-    setAppointments(appointments.map(app => 
-      app.id === id ? { ...app, feedback } : app
-    ));
+  // Handle New Appointment
+  const handleNewAppointment = async (formData: AppointmentFormData) => {
+    try {
+      setIsSubmitting(true);
+      const response = await AppointmentService.createAppointment({
+        ...formData,
+        patient: userData?.id as number
+      });
+      
+      if (response.status === 200 && response.data) {
+        if (response.data) {
+          setAppointments(prev => [...prev, response.data as Appointment]);
+        }
+        setIsAddingAppointment(false);
+        toast({
+          title: "Success",
+          description: "Appointment booked successfully",
+        });
+      } else {
+        throw new Error(response.error || 'Booking failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to book appointment",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const setRating = (id: number, rating: number) => {
-    setAppointments(appointments.map(app => 
-      app.id === id ? { ...app, rating } : app
-    ));
+  // Handle Appointment Cancellation
+  const handleCancelAppointment = async (appointmentId: number) => {
+    try {
+      const response = await AppointmentService.cancelAppointment(appointmentId);
+      if (response.status === 200) {
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === appointmentId 
+              ? { ...apt, status: 'CANCELLED' } 
+              : apt
+          )
+        );
+        toast({
+          title: "Success",
+          description: "Appointment cancelled successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel appointment",
+        variant: "destructive"
+      });
+    }
   };
 
-  const viewDoctorProfile = (doctorName: string) => {
-    const doctor = doctors.find(doc => doc.name === doctorName);
-    setSelectedDoctor(doctor || null);
-  };
+  // Filter appointments
+  const filteredAppointments = appointments.filter(appointment => {
+    const searchFields = [
+      appointment.reason.toLowerCase(),
+      appointment?.provider_name?.toLowerCase() || '',
+    ];
+    
+    const matchesSearch = searchTerm === '' || 
+      searchFields.some(field => field.includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter.includes(appointment.status);
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  if (loading || userLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-white p-4 sm:p-6 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="relative flex-1">
-  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-  <Input
-    className="pl-10 pr-4 py-3 w-full bg-white border rounded-full shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 transition-all"
-    placeholder="Search appointments by title or doctor..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)} // Updates searchTerm dynamically
-  />
-</div>
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8">
-          <div className="text-center sm:text-left">
-            <h1 className="text-3xl font-semibold text-gray-900">{userData?.first_name}'s Appointments</h1>
-            <p className="text-gray-500 text-sm sm:text-base">
-              Manage your healthcare effortlessly with a few clicks.
-            </p>
-          </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full px-4 py-2 sm:px-6 sm:py-3 shadow-lg hover:shadow-xl transition-all duration-300">
-                <Plus className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
-                New Appointment
+    <GlobalErrorBoundary fallback={<div>Something went wrong. Please try again later.</div>}>
+      <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-white p-4 sm:p-6 md:p-8">
+        {/* GP Registration Warning */}
+        {!isBookingEnabled && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
+              <p className="text-sm text-yellow-700">
+                You need to register with a GP practice before booking appointments.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-4"
+                onClick={() => setShowGPRegistrationDialog(true)}
+              >
+                Register Now
               </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-white rounded-lg p-4 sm:p-6 w-[95vw] max-w-md mx-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-semibold mb-4">Schedule New Appointment</DialogTitle>
-                <DialogDescription>
-                  Fill in the details to book your new appointment.
-                </DialogDescription>
-              </DialogHeader>
-              <form className="space-y-4">
-                <div>
-                  <Label htmlFor="title">Appointment Title</Label>
-                  <Input id="title" placeholder="Enter appointment title" />
-                </div>
-                <div>
-                  <Label htmlFor="doctor">Doctor</Label>
-                  <Input id="doctor" placeholder="Enter doctor's name" />
-                </div>
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="time">Time</Label>
-                  <Input id="time" type="time" />
-                </div>
-                <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" placeholder="Enter appointment location" />
-                </div>
-                <div>
-                  <Label htmlFor="recurrence">Recurrence</Label>
-                  <Select onValueChange={(value) => setRecurrence(value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select recurrence" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" placeholder="Enter any additional notes" />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="reminders" />
-                  <Label htmlFor="reminders">Enable reminders</Label>
-                </div>
-              </form>
-              <DialogFooter>
-                <Button type="submit" className="w-full mt-4">Schedule Appointment</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </header>
-
-        {/* Appointment Cards */}
-        <div className="grid gap-6">
-          {filteredAppointments.map((appointment, index) => (
-            <motion.div
-              key={appointment.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-            >
-              <Card className="p-4 sm:p-6 bg-gradient-to-br from-white to-gray-50 shadow-md rounded-2xl hover:shadow-lg transition-all duration-300">
-                <CardContent>
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="w-12 h-12 sm:w-16 sm:h-16">
-                      <AvatarImage src={appointment.avatar} alt={appointment.doctor} />
-                      <AvatarFallback>{appointment.doctor.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-medium text-gray-800">{appointment.title}</h3>
-                      <p className="text-sm text-gray-600">{appointment.doctor}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-700">
-                    <div className="flex items-center">
-                      <Calendar className="w-5 h-5 text-blue-500 mr-2" />
-                      {appointment.date}
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="w-5 h-5 text-blue-500 mr-2" />
-                      {appointment.time}
-                    </div>
-                    <div className="col-span-2 flex items-center">
-                      <MapPin className="w-5 h-5 text-blue-500 mr-2" />
-                      {appointment.location}
-                    </div>
-                  </div>
-                  {appointment.notes && (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-gray-700">
-                      <AlertCircle className="inline-block w-5 h-5 text-blue-500 mr-2" />
-                      {appointment.notes}
-                    </div>
-                  )}
-                  <div className="mt-4 flex justify-between items-center">
-                    <Badge
-                      variant={appointment.status === 'upcoming' ? 'default' : appointment.status === 'completed' ? 'secondary' : 'destructive'}
-                      className="capitalize px-2 py-1 text-xs font-medium"
-                    >
-                      {appointment.status}
-                    </Badge>
-                    <Button variant="ghost" className="text-blue-500 hover:bg-blue-50 px-3 py-2 rounded-full">
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* No Appointments Fallback */}
-        {filteredAppointments.length === 0 && (
-          <div className="text-center text-gray-500">
-            <p>No appointments found.</p>
-            <p>Try adjusting your filters or schedule a new appointment.</p>
+            </div>
           </div>
         )}
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Search and Actions */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                className="pl-10"
+                placeholder="Search appointments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => setIsAddingAppointment(true)}
+              disabled={!isBookingEnabled}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="mr-2" /> New Appointment
+            </Button>
+          </div>
+
+          {/* Appointments List */}
+          <div className="grid gap-6">
+            {filteredAppointments.length > 0 ? (
+              filteredAppointments.map((appointment) => (
+                <AppointmentCard
+                  key={appointment.id}
+                  appointment={appointment}
+                  onCancel={() => handleCancelAppointment(appointment.id)}
+                />
+              ))
+            ) : (
+              <div className="text-center py-10">
+                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900">
+                  No appointments found
+                </h3>
+                <p className="mt-1 text-gray-500">
+                  {searchTerm ? 'Try adjusting your search terms' : 'Schedule your first appointment'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* GP Registration Dialog */}
+        <GPRegistrationDialog
+          open={showGPRegistrationDialog}
+          onOpenChange={setShowGPRegistrationDialog}
+          practices={availableGPPractices}
+          onSubmit={handleGPRegistration}
+          isSubmitting={isSubmitting}
+        />
+
+        {/* New Appointment Dialog */}
+        <Dialog open={isAddingAppointment} onOpenChange={setIsAddingAppointment}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Book New Appointment</DialogTitle>
+            </DialogHeader>
+            
+            <AppointmentForm
+              onSubmit={handleNewAppointment}
+              practiceId={userData?.current_gp_practice?.toString() || ''}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
-    </div>
-  )
+    </GlobalErrorBoundary>
+  );
 }

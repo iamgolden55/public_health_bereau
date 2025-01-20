@@ -1,0 +1,1 @@
+from .class_views import ResourceViewSet, ResearchProjectViewSet, ResearchCohortViewSet, AnalyticsReportViewSet, HealthAnalyticsViewSet

@@ -1,0 +1,73 @@
+.
+├── __init__.py
+├── __pycache__
+│   ├── __init__.cpython-312.pyc
+│   ├── imports.cpython-312.pyc
+│   └── mixin.cpython-312.pyc
+├── authentication_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── class_views.cpython-312.pyc
+│   │   └── function_views.cpython-312.pyc
+│   ├── class_views.py
+│   └── function_views.py
+├── communications_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── device_management_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── financial_management_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── general_practice_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── hospital_managment_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── imports.py
+├── medical_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── mixin.py
+├── new.txt
+├── platform_management_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+├── resources_viewset
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── class_views.cpython-312.pyc
+│   └── class_views.py
+└── surgery_management_viewset
+    ├── __init__.py
+    ├── __pycache__
+    │   ├── __init__.cpython-312.pyc
+    │   └── class_views.cpython-312.pyc
+    └── class_views.py
+
+22 directories, 49 files

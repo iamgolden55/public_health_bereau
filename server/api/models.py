@@ -5,6 +5,7 @@ from django.utils.crypto import get_random_string
 from django.contrib.postgres.fields import ArrayField
 from django.utils import timezone
 from datetime import timedelta
+from django.core.exceptions import ValidationError
 import json
 
 from rest_framework import viewsets, permissions
@@ -84,11 +85,19 @@ class UserProfile(AbstractUser):
     )
 
     has_registered_gp = models.BooleanField(default=False)
-    current_gp_practice = models.ForeignKey('GPPractice', 
+    current_gp_practice = models.ForeignKey(
+        'GPPractice', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
-        related_name='registered_patients'
+        related_name='current_patients'
+    )
+    current_gp = models.ForeignKey(
+        'GeneralPractitioner',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='current_patients'
     )
 
     # Enhanced medical fields
@@ -158,26 +167,44 @@ class GPPractice(models.Model):
     name = models.CharField(max_length=200)
     registration_number = models.CharField(max_length=50, unique=True)
     address = models.TextField()
+    city = models.CharField(max_length=100)
+    postcode = models.CharField(max_length=20)
     contact_number = models.CharField(max_length=20)
     email = models.EmailField()
-    capacity = models.IntegerField()  # Maximum number of registered patients
+    capacity = models.IntegerField(help_text="Maximum number of registered patients")
     is_accepting_patients = models.BooleanField(default=True)
+    opening_hours = models.JSONField(help_text="Store opening hours for each day")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"{self.name} - {self.city}"
+
+    class Meta:
+        verbose_name = "GP Practice"
+        verbose_name_plural = "GP Practices"
+
 class GeneralPractitioner(models.Model):
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
-    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE)
+    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE, related_name='gp_doctors')
     license_number = models.CharField(max_length=50, unique=True)
-    specializations = models.JSONField()  # Store GP's specific areas of expertise
-    availability_schedule = models.JSONField()  # Store weekly schedule
+    specializations = models.JSONField(default=list)
+    availability_schedule = models.JSONField(default=dict)
     max_daily_appointments = models.IntegerField(default=20)
     is_accepting_appointments = models.BooleanField(default=True)
-    
+    qualification = models.TextField()
+    years_of_experience = models.IntegerField()
+    biography = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Dr. {self.user.get_full_name()} - {self.practice.name}"
+
 class PatientGPRegistration(models.Model):
-    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE)
-    gp = models.ForeignKey(GeneralPractitioner, on_delete=models.SET_NULL, null=True)
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='gp_registrations')
+    practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE, related_name='registered_patients')
+    gp = models.ForeignKey(GeneralPractitioner, on_delete=models.SET_NULL, null=True, related_name='assigned_patients')
     registration_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(
         max_length=20,
@@ -186,7 +213,8 @@ class PatientGPRegistration(models.Model):
             ('PENDING', 'Pending'),
             ('TRANSFERRED', 'Transferred'),
             ('INACTIVE', 'Inactive')
-        ]
+        ],
+        default='PENDING'
     )
     previous_practice = models.ForeignKey(
         GPPractice, 
@@ -194,34 +222,13 @@ class PatientGPRegistration(models.Model):
         null=True, 
         related_name='transferred_patients'
     )
+    notes = models.TextField(blank=True, null=True)
 
-class InitialConsultation(models.Model):
-    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-    gp = models.ForeignKey(GeneralPractitioner, on_delete=models.CASCADE)
-    consultation_date = models.DateTimeField()
-    chief_complaint = models.TextField()
-    symptoms = models.JSONField()
-    initial_assessment = models.TextField()
-    priority_level = models.CharField(
-        max_length=20,
-        choices=[
-            ('ROUTINE', 'Routine'),
-            ('URGENT', 'Urgent'),
-            ('EMERGENCY', 'Emergency')
-        ]
-    )
-    referral_needed = models.BooleanField(default=False)
-    referral_type = models.CharField(
-        max_length=50,
-        choices=[
-            ('SPECIALIST', 'Specialist'),
-            ('LABORATORY', 'Laboratory'),
-            ('PHARMACY', 'Pharmacy'),
-            ('HOSPITAL', 'Hospital')
-        ],
-        null=True, 
-        blank=True
-    )            
+    class Meta:
+        unique_together = ['patient', 'practice', 'status']
+
+    def __str__(self):
+        return f"{self.patient.get_full_name()} - {self.practice.name}"
 
 # ============= Professional Profile Tools =============
 
@@ -416,31 +423,32 @@ class Appointment(models.Model):
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
-    gp = models.ForeignKey('GeneralPractitioner', on_delete=models.SET_NULL, null=True)
-    initial_consultation = models.ForeignKey('InitialConsultation', on_delete=models.SET_NULL, null=True)
+    gp = models.ForeignKey(
+        'GeneralPractitioner', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name='appointments'
+    )
+    practice = models.ForeignKey(
+        'GPPractice',
+        on_delete=models.CASCADE,
+        related_name='appointments',
+        null=True,  # Add this
+        blank=True  # Add this
+    )
     appointment_type = models.CharField(
         max_length=50,
         choices=[
-            ('GP_ROUTINE', 'GP Routine'),  # This will be our default
+            ('GP_ROUTINE', 'GP Routine'),
             ('GP_FOLLOWUP', 'GP Follow-up'),
             ('SPECIALIST', 'Specialist'),
             ('EMERGENCY', 'Emergency'),
             ('VACCINATION', 'Vaccination'),
             ('SCREENING', 'Screening')
         ],
-        default='GP_ROUTINE'  # This line explicitly sets the default
+        default='GP_ROUTINE'
     )
-    booking_method = models.CharField(
-        max_length=20,
-        choices=[
-            ('PHONE', 'Phone'),
-            ('ONLINE', 'Online'),
-            ('GP_REFERRAL', 'GP Referral'),
-            ('EMERGENCY', 'Emergency')
-        ],
-        default='ONLINE'  # Setting default booking method
-    )
-    priority_level = models.CharField(
+    priority = models.CharField(
         max_length=20,
         choices=[
             ('ROUTINE', 'Routine'),
@@ -449,11 +457,47 @@ class Appointment(models.Model):
         ],
         default='ROUTINE'
     )
-    referral = models.ForeignKey('Referral', on_delete=models.SET_NULL, null=True)
+    duration = models.DurationField(
+        default=timedelta(minutes=15),
+        help_text="Expected duration of appointment"
+    )
+    reminders_enabled = models.BooleanField(default=True)
+    last_reminder_sent = models.DateTimeField(null=True, blank=True)
+    check_in_time = models.DateTimeField(null=True, blank=True)
+    actual_duration = models.DurationField(null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['appointment_date', 'status']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['practice', 'appointment_date']),
+        ]
+        ordering = ['-appointment_date']
 
-    def __str__(self):
-        return f"{self.patient.get_full_name()} - {self.appointment_date}"
+    def clean(self):
+        # Validate appointment rules
+        if self.appointment_date and self.appointment_date < timezone.now():
+            raise ValidationError("Cannot book appointments in the past")
+            
+        if self.appointment_type == 'SPECIALIST' and not self.provider:
+            raise ValidationError("Specialist appointments require a provider")
 
+    def send_reminder(self):
+        """Send appointment reminder to patient"""
+        if not self.reminders_enabled:
+            return
+            
+        # Implementation for sending reminders
+        pass
+
+    @property
+    def is_upcoming(self):
+        return self.appointment_date > timezone.now() and self.status == 'SCHEDULED'
+
+    @property
+    def can_cancel(self):
+        return self.is_upcoming and self.appointment_date > (timezone.now() + timedelta(hours=24))
+    
 # ============= Referral System =================
 class Referral(models.Model):
     patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE)

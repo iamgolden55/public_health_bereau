@@ -36,6 +36,12 @@ import {
   Loader2
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  PatientAnalytics,
+  ClinicalOutcomes,
+  PracticeEfficiency
+} from './components/analytics'  // Import the new components
+
 
 // Types
 interface DateRange {
@@ -398,36 +404,15 @@ export default function AnalyticsDashboard() {
         </TabsContent>
 
         <TabsContent value="patients">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detailed Patient Analytics</CardTitle>
-              <CardDescription>
-                Coming soon: Comprehensive patient demographics and engagement metrics
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <PatientAnalytics />
         </TabsContent>
 
         <TabsContent value="clinical">
-          <Card>
-            <CardHeader>
-              <CardTitle>Clinical Outcomes</CardTitle>
-              <CardDescription>
-                Coming soon: Treatment effectiveness and recovery metrics
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <ClinicalOutcomes />
         </TabsContent>
 
         <TabsContent value="efficiency">
-          <Card>
-            <CardHeader>
-              <CardTitle>Practice Efficiency</CardTitle>
-              <CardDescription>
-                Coming soon: Resource utilization and workflow analytics
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <PracticeEfficiency />
         </TabsContent>
       </Tabs>
     </div>

@@ -5,6 +5,8 @@ import { ErrorFallback } from './ErrorFallback'
 
 interface Props {
   children: React.ReactNode
+
+  fallback: React.ReactNode
 }
 
 interface State {

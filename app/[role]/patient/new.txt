@@ -1,0 +1,271 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  Search, 
+  Plus, 
+  ChevronRight, 
+  AlertCircle, 
+  Filter,
+  AlertTriangle,
+  Loader2
+} from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { useToast } from "@/components/ui/use-toast"
+import { useUser } from '@/app/context/user-context'
+
+// Enhanced TypeScript interfaces
+interface Appointment {
+  id: number
+  title: string
+  doctor: string
+  doctorId: string
+  location: string
+  date: string
+  time: string
+  status: 'upcoming' | 'completed' | 'canceled'
+  avatar: string
+  preparationProgress: number
+  notes?: string
+  reminders: boolean
+  recurrence?: string
+  preparationTasks?: { task: string; completed: boolean }[]
+  rating?: number
+  feedback?: string
+  patientName?: string
+  patientId?: string
+  appointmentType: 'GP_ROUTINE' | 'GP_FOLLOWUP' | 'SPECIALIST' | 'EMERGENCY' | 'VACCINATION' | 'SCREENING'
+  priority: 'ROUTINE' | 'URGENT' | 'EMERGENCY'
+}
+
+interface GPPractice {
+  id: string
+  name: string
+  address: string
+  isAcceptingPatients: boolean
+}
+
+interface Doctor {
+  id: string
+  name: string
+  specialty: string
+  bio: string
+  gpPracticeId?: string
+}
+
+export default function AppointmentsPage() {
+  // Hooks and State
+  const { userData, loading: userLoading } = useUser()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string[]>(['upcoming', 'completed', 'canceled'])
+  const [showGPRegistrationDialog, setShowGPRegistrationDialog] = useState(false)
+  const [availableGPPractices, setAvailableGPPractices] = useState<GPPractice[]>([])
+  const [selectedGPPractice, setSelectedGPPractice] = useState<string>('')
+  const [isBookingEnabled, setIsBookingEnabled] = useState(false)
+
+  // Check GP registration status on component mount
+  useEffect(() => {
+    const checkGPRegistration = async () => {
+      try {
+        if (!userLoading && userData) {
+          // Simulate API call to check GP registration
+          const response = await fetch(`/api/patients/${userData.hpn}/gp-registration`)
+          const data = await response.json()
+          
+          setIsBookingEnabled(data.hasRegisteredGP)
+          if (!data.hasRegisteredGP) {
+            // Fetch available GP practices
+            const practicesResponse = await fetch('/api/gp-practices')
+            const practicesData = await practicesResponse.json()
+            setAvailableGPPractices(practicesData)
+          }
+        }
+      } catch (error) {
+        console.error('Error checking GP registration:', error)
+        toast({
+          title: "Error",
+          description: "Failed to check GP registration status",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkGPRegistration()
+  }, [userLoading, userData, toast])
+
+  // Handle GP Practice Registration
+  const handleGPRegistration = async () => {
+    if (!selectedGPPractice) {
+      toast({
+        title: "Error",
+        description: "Please select a GP practice",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      // Simulate API call to register with GP
+      await fetch('/api/gp-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: userData?.hpn,
+          gpPracticeId: selectedGPPractice
+        })
+      })
+
+      toast({
+        title: "Success",
+        description: "GP registration request submitted successfully",
+      })
+      setIsBookingEnabled(true)
+      setShowGPRegistrationDialog(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to register with GP practice",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle New Appointment Booking
+  const handleNewAppointment = async (formData: any) => {
+    if (!isBookingEnabled) {
+      setShowGPRegistrationDialog(true)
+      return
+    }
+
+    try {
+      setLoading(true)
+      // Simulate API call to book appointment
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          patientId: userData?.hpn
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to book appointment')
+
+      toast({
+        title: "Success",
+        description: "Appointment booked successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to book appointment",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading || userLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-white p-4 sm:p-6 md:p-8">
+      {/* GP Registration Warning */}
+      {!isBookingEnabled && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
+            <p className="text-sm text-yellow-700">
+              You need to register with a GP practice before booking appointments.
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-4"
+              onClick={() => setShowGPRegistrationDialog(true)}
+            >
+              Register Now
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Rest of your existing JSX */}
+      {/* ... */}
+
+      {/* GP Registration Dialog */}
+      <Dialog open={showGPRegistrationDialog} onOpenChange={setShowGPRegistrationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Register with a GP Practice</DialogTitle>
+            <DialogDescription>
+              You need to register with a GP practice before booking appointments. This is a one-time process.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Select GP Practice</Label>
+              <Select
+                value={selectedGPPractice}
+                onValueChange={setSelectedGPPractice}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a GP practice" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableGPPractices.map((practice) => (
+                    <SelectItem 
+                      key={practice.id} 
+                      value={practice.id}
+                      disabled={!practice.isAcceptingPatients}
+                    >
+                      {practice.name} {!practice.isAcceptingPatients && "(Not Accepting Patients)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              onClick={handleGPRegistration}
+              disabled={!selectedGPPractice || loading}
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Register with GP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

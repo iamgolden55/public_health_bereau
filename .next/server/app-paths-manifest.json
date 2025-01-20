@@ -1,6 +1,4 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/[role]/patient/page": "app/[role]/patient/page.js",
-  "/[role]/professional/page": "app/[role]/professional/page.js",
-  "/auth/login/page": "app/auth/login/page.js"
+  "/[role]/professional/page": "app/[role]/professional/page.js"
 }

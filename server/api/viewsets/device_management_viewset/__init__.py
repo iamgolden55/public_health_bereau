@@ -1,0 +1,1 @@
+from .class_views import MedicalDeviceViewSet, DeviceReadingViewSet

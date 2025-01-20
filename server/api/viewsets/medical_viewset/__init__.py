@@ -1,0 +1,1 @@
+from .class_views import SpecialtyClinicViewSet, AppointmentViewSet, MedicalRecordViewSet, PatientAccessViewSet, DiagnosisViewSet, MedicalProfessionalViewSet, MedicationViewSet, ProcedureViewSet, LabResultViewSet

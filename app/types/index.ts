@@ -1,36 +1,15 @@
 // app/types/index.ts
-
-// Core exports
 export * from './core';
+export * from './medical';
 
-// Medical exports (explicitly excluding TelemedicineSession)
-export type {
-  MedicalRecord,
-  VitalSigns,
-  Diagnosis,
-  Medication,
-  Procedure,
-  LabResult
-} from './medical';
+// Common utility types
+export type EntityId = number | string;
 
-// Communication exports (including TelemedicineSession)
-export type {
-  Message,
-  TelemedicineSession,
-  TelemedicineStatus,
-  ChatMessage,
-  MessageType,
-  Notification
-} from './communication';
+export type Status = 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'COMPLETED' | 'CANCELLED';
 
-// Hospital exports
-export * from './hospital';
+export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
-// Billing exports
-export * from './billing';
-
-// Device exports
-export * from './devices';
-
-// Research exports
-export * from './research';
+export interface Timestamp {
+    created_at: string;
+    updated_at: string;
+}
