@@ -1,0 +1,246 @@
+{
+    "user": {
+        "email": "test.patient@example.com",
+        "password": "Test123!",
+        "role": "patient"
+    },
+    "medical_records": [
+        {
+            "record_date": "2024-03-16",
+            "doctor_name": "Dr. Sarah Johnson",
+            
+            "vital_signs": {
+                "blood_pressure": "140/90",
+                "heart_rate": "88",
+                "temperature": "37.2",
+                "respiratory_rate": "16",
+                "oxygen_saturation": "98"
+            },
+            
+            "chief_complaint": "Patient presents with persistent headaches and fatigue",
+            "present_illness": "Reports experiencing throbbing headaches for the past 2 weeks, accompanied by unusual fatigue and occasional dizziness. Symptoms worsen in the afternoon.",
+            "clinical_notes": "Physical examination reveals slight hypertension. Neurological exam normal. No signs of infection.",
+            "diagnosis": "Tension headache with possible stress-related components",
+            "treatment_plan": "Prescribed acetaminophen 500mg PRN, stress management techniques recommended, follow-up in 2 weeks",
+
+            "family_history": {
+                "mother": "Hypertension, Type 2 Diabetes",
+                "father": "Heart Disease",
+                "siblings": "No significant conditions",
+                "maternal_history": "Breast cancer (grandmother), Osteoporosis",
+                "paternal_history": "Cardiovascular disease, Prostate cancer"
+            },
+
+            "reproductive_health": {
+                "menstrual_cycles": [{
+                    "cycle_startdate": "2024-02-15",
+                    "cycle_enddate": "2024-02-20",
+                    "cycle_length": 28,
+                    "flow_intensity": "moderate",
+                    "symptoms": ["cramps", "bloating", "fatigue"],
+                    "notes": "Regular cycle, moderate symptoms"
+                }],
+                "pregnancy_history": {
+                    "total_pregnancies": 1,
+                    "live_births": 1,
+                    "miscarriages": 0,
+                    "complications": "None"
+                },
+                "contraception": "Hormonal IUD",
+                "last_pap_smear": "2023-09-15",
+                "pap_smear_result": "Normal"
+            },
+
+            "chronic_conditions": [
+                {
+                    "condition": "Migraine",
+                    "diagnosed_date": "2022-05-10",
+                    "status": "Managed",
+                    "treatment": "Sumatriptan as needed",
+                    "notes": "Frequency reduced with lifestyle changes"
+                },
+                {
+                    "condition": "Polycystic Ovary Syndrome",
+                    "diagnosed_date": "2021-03-15",
+                    "status": "Active",
+                    "treatment": "Metformin, lifestyle modifications",
+                    "notes": "Regular monitoring of hormone levels"
+                }
+            ],
+
+            "medications": [
+                {
+                    "name": "Metformin",
+                    "dosage": "500mg",
+                    "frequency": "Twice daily",
+                    "start_date": "2021-03-15",
+                    "purpose": "PCOS management",
+                    "prescribing_doctor": "Dr. Sarah Johnson"
+                },
+                {
+                    "name": "Sumatriptan",
+                    "dosage": "50mg",
+                    "frequency": "As needed for migraines",
+                    "start_date": "2022-05-10",
+                    "purpose": "Migraine treatment",
+                    "prescribing_doctor": "Dr. Michael Chen"
+                }
+            ],
+
+            "diagnostic_imaging": [
+                {
+                    "type": "Pelvic Ultrasound",
+                    "date": "2024-01-20",
+                    "facility": "Women's Health Imaging Center",
+                    "ordering_doctor": "Dr. Sarah Johnson",
+                    "findings": "Multiple small ovarian cysts noted bilaterally, consistent with PCOS",
+                    "recommendations": "Follow-up ultrasound in 6 months",
+                    "image_url": "https://example.com/images/us_20240120.jpg"
+                },
+                {
+                    "type": "Mammogram",
+                    "date": "2023-11-15",
+                    "facility": "Breast Care Center",
+                    "ordering_doctor": "Dr. Sarah Johnson",
+                    "findings": "No suspicious masses or calcifications",
+                    "recommendations": "Routine screening in 1 year",
+                    "image_url": "https://example.com/images/mammo_20231115.jpg"
+                }
+            ],
+
+            "mental_health_status": "stable",
+            "mental_health_assessment": "Patient exhibits mild anxiety symptoms related to work stress",
+            "mood_evaluation": "Slightly anxious but overall stable",
+            "anxiety_level": "Mild",
+            "therapy_notes": "Patient demonstrates good insight into stress triggers",
+            "treatment_recommendations": "Weekly counseling sessions recommended, stress management techniques provided",
+            "mental_health_provider": "Dr. Michael Chen",
+            "sleep_quality": "Moderately disturbed",
+
+            "hormone_panels": [{
+                "test_date": "2024-03-16",
+                "estrogen_level": "150 pg/mL",
+                "progesterone_level": "12 ng/mL",
+                "fsh_level": "6.5 mIU/mL",
+                "lh_level": "5.2 mIU/mL",
+                "testosterone_level": "32 ng/dL",
+                "prolactin_level": "15 ng/mL",
+                "is_abnormal": false,
+                "notes": "Hormone levels within normal range for reproductive age"
+            }]
+        },
+        {
+            "record_date": "2023-09-15",
+            "doctor_name": "Dr. Sarah Johnson",
+            
+            "vital_signs": {
+                "blood_pressure": "150/95",
+                "heart_rate": "102",
+                "temperature": "38.5",
+                "respiratory_rate": "22",
+                "oxygen_saturation": "94"
+            },
+            
+            "chief_complaint": "Severe abdominal pain with irregular menstrual bleeding",
+            "present_illness": "Patient reports severe cramping and heavy bleeding for past 2 weeks. Associated symptoms include fatigue, dizziness, and nausea.",
+            "clinical_notes": "Patient appears pale and distressed. Abdominal examination reveals tenderness in lower quadrants. Urgent ultrasound ordered.",
+            "diagnosis": "Abnormal uterine bleeding, suspected uterine fibroids",
+            "treatment_plan": "Referred to gynecology for urgent evaluation. Prescribed tranexamic acid for bleeding control.",
+
+            "mental_health_status": "distressed",
+            "mental_health_assessment": "Patient showing signs of acute anxiety related to health concerns",
+            "mood_evaluation": "Anxious and depressed",
+            "anxiety_level": "Severe",
+            "therapy_notes": "Patient expressing significant worry about fertility implications",
+            "treatment_recommendations": "Urgent counseling referral, consider short-term anxiolytic medication",
+            "mental_health_provider": "Dr. Michael Chen",
+            "sleep_quality": "Poor",
+
+            "hormone_panels": [{
+                "test_date": "2023-09-15",
+                "estrogen_level": "325 pg/mL",
+                "progesterone_level": "3 ng/mL",
+                "fsh_level": "2.1 mIU/mL",
+                "lh_level": "1.8 mIU/mL",
+                "testosterone_level": "85 ng/dL",
+                "prolactin_level": "45 ng/mL",
+                "is_abnormal": true,
+                "notes": "Significant hormonal imbalance noted. Elevated estrogen and testosterone levels."
+            }],
+
+            "diagnostic_imaging": [
+                {
+                    "type": "Transvaginal Ultrasound",
+                    "date": "2023-09-15",
+                    "facility": "Women's Health Imaging Center",
+                    "ordering_doctor": "Dr. Sarah Johnson",
+                    "findings": "Multiple uterine fibroids identified. Largest measuring 6.5cm. Complex ovarian cyst on right side.",
+                    "recommendations": "Gynecology referral, follow-up imaging in 2 weeks",
+                    "image_url": "https://example.com/images/us_20230915.jpg"
+                }
+            ]
+        },
+        {
+            "record_date": "2023-03-10",
+            "doctor_name": "Dr. Sarah Johnson",
+            
+            "vital_signs": {
+                "blood_pressure": "145/92",
+                "heart_rate": "90",
+                "temperature": "37.0",
+                "respiratory_rate": "18",
+                "oxygen_saturation": "97"
+            },
+
+            "chief_complaint": "Follow-up for PCOS management",
+            "present_illness": "Reports irregular periods and mild pelvic pain",
+            "clinical_notes": "Symptoms of PCOS persisting but less severe than initial presentation",
+            "diagnosis": "PCOS - partially controlled",
+            "treatment_plan": "Continue current medications, lifestyle modifications emphasized",
+
+            "mental_health_status": "improving",
+            "mental_health_assessment": "Showing better coping mechanisms",
+            "mood_evaluation": "Mild anxiety",
+            "anxiety_level": "Mild to Moderate",
+            "therapy_notes": "Progress noted in stress management",
+            "treatment_recommendations": "Continue bi-weekly counseling",
+            "mental_health_provider": "Dr. Michael Chen",
+            "sleep_quality": "Fair",
+
+            "hormone_panels": [{
+                "test_date": "2023-03-10",
+                "estrogen_level": "180 pg/mL",
+                "progesterone_level": "8 ng/mL",
+                "fsh_level": "4.2 mIU/mL",
+                "lh_level": "3.5 mIU/mL",
+                "testosterone_level": "55 ng/dL",
+                "prolactin_level": "25 ng/mL",
+                "is_abnormal": true,
+                "notes": "Hormone levels improving but still outside normal range"
+            }],
+
+            "medications": [
+                {
+                    "name": "Metformin",
+                    "dosage": "500mg",
+                    "frequency": "Once daily",
+                    "start_date": "2023-03-10",
+                    "purpose": "Initial PCOS treatment",
+                    "prescribing_doctor": "Dr. Sarah Johnson"
+                }
+            ],
+
+            "diagnostic_imaging": [
+                {
+                    "type": "Pelvic Ultrasound",
+                    "date": "2023-03-10",
+                    "facility": "Women's Health Imaging Center",
+                    "ordering_doctor": "Dr. Sarah Johnson",
+                    "findings": "Multiple small ovarian cysts, largest measuring 2.5cm",
+                    "recommendations": "Follow-up in 6 months",
+                    "image_url": "https://example.com/images/us_20230310.jpg"
+                }
+            ]
+        }
+    ]
+} 
