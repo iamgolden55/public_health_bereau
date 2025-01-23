@@ -1,18 +1,24 @@
+'use client'
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
+import { useUser } from '@/app/context/user-context';
 import { cn } from "@/lib/utils";
 import { 
   User, Heart, FileText, Brain, 
   Sparkles, Send, Paperclip,
   Image as ImageIcon, Wand2,
   Activity, Globe, Plus,
-  MessageSquare, Zap
+  MessageSquare
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const DelightfulHealthChat = () => {
+  const router = useRouter();
+  const { userData, loading, handleLogout } = useUser();
   const [inputValue, setInputValue] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
@@ -142,7 +148,7 @@ const DelightfulHealthChat = () => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6 }}
           >
-            Hi there, <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">John</span>
+            Hi there, <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">{userData?.first_name}</span>
           </motion.h1>
           
           <motion.h2 

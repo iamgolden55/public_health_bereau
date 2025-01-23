@@ -1,9 +1,13 @@
+# Description: This file contains the URL patterns for the API endpoints located in the "server/api/urls.py" file.
+
 from django.urls import path, include
 from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
 from rest_framework.schemas import get_schema_view
-from .viewsets import update_user, get_user, LogoutView, update_dashboard_preference
+from .viewsets import update_user, get_user, LogoutView, update_dashboard_preference, get_medical_records
+from .viewsets.health_tips.views import daily_health_tip
+from .viewsets.clinical_notes.views import simplify_clinical_note
 
 
 
@@ -136,8 +140,8 @@ urlpatterns = [
     path('resend-verification/', ResendVerificationView.as_view(), name='resend-verification'),
     path('social-auth/<str:provider>/', SocialAuthView.as_view(), name='social-auth'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    # API endpoint for sharing medical records
-    
+    # API endpoint for getting medical records
+    path('medical-records/', get_medical_records, name='medical-records'),    
 
     # Include all router URLs
     path('', include(router.urls)),
@@ -146,4 +150,6 @@ urlpatterns = [
     #    path('hospital/<int:hospital_id>/', get_hospital_analytics, name='hospital-analytics'),
     #    path('department/<int:department_id>/', get_department_analytics, name='department-analytics'),
   #  ])),
+    path('health-tips/daily/', daily_health_tip, name='daily_health_tip'),
+    path('clinical-notes/simplify/', simplify_clinical_note, name='simplify_clinical_note'),
 ]

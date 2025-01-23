@@ -1,3 +1,5 @@
+# This file contains the class-based views for the medical API endpoints located in the "medical_viewset/class_views.py" .
+
 from ..imports import *
 
 #mixins
@@ -586,3 +588,89 @@ class ShareMedicalRecordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ================END OF RECORD SHARING===========================
+
+# Preventive Care ViewSet
+class ImmunizationViewSet(viewsets.ModelViewSet):
+    serializer_class = ImmunizationSerializer
+    permission_classes = [IsAuthenticated, IsMedicalProfessional]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'medicalprofessional'):
+            return Immunization.objects.filter(administered_by=user.medicalprofessional)
+        return Immunization.objects.filter(medical_record__patient=user)
+
+# Mental Health ViewSet
+class MentalHealthAssessmentViewSet(viewsets.ModelViewSet):
+    serializer_class = MentalHealthAssessmentSerializer
+    permission_classes = [IsAuthenticated, IsMedicalProfessional]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'medicalprofessional'):
+            return MentalHealthAssessment.objects.filter(assessed_by=user.medicalprofessional)
+        return MentalHealthAssessment.objects.filter(medical_record__patient=user)
+
+# Family History ViewSet
+class FamilyHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = FamilyHistorySerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return FamilyHistory.objects.filter(medical_record__patient=self.request.user)
+
+# Reproductive Health ViewSets
+class MenstrualCycleViewSet(viewsets.ModelViewSet):
+    serializer_class = MenstrualCycleSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return MenstrualCycle.objects.filter(medical_record__patient=self.request.user)
+
+class FertilityAssessmentViewSet(viewsets.ModelViewSet):
+    serializer_class = FertilityAssessmentSerializer
+    permission_classes = [IsAuthenticated, IsMedicalProfessional]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'medicalprofessional'):
+            return FertilityAssessment.objects.filter(assessed_by=user.medicalprofessional)
+        return FertilityAssessment.objects.filter(medical_record__patient=user)
+
+class HormonePanelViewSet(viewsets.ModelViewSet):
+    serializer_class = HormonePanelSerializer
+    permission_classes = [IsAuthenticated, IsMedicalProfessional]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'medicalprofessional'):
+            return HormonePanel.objects.filter(medical_record__provider=user.medicalprofessional)
+        return HormonePanel.objects.filter(medical_record__patient=user)
+
+class GynecologicalExamViewSet(viewsets.ModelViewSet):
+    serializer_class = GynecologicalExamSerializer
+    permission_classes = [IsAuthenticated, IsMedicalProfessional]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'medicalprofessional'):
+            return GynecologicalExam.objects.filter(performed_by=user.medicalprofessional)
+        return GynecologicalExam.objects.filter(medical_record__patient=user)
+
+    @action(detail=False, methods=['get'])
+    def due_for_screening(self, request):
+        """Get patients due for routine screening"""
+        one_year_ago = timezone.now() - timedelta(days=365)
+        queryset = self.get_queryset().filter(
+            exam_type='ROUTINE',
+            exam_date__lte=one_year_ago
+        )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

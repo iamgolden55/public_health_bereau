@@ -17,6 +17,12 @@ from pathlib import Path
 import ssl
 import smtplib
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+import sys
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,8 +44,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",  # Adjust if your frontend is running on a different port
+    "http://localhost:3000",  # Add your frontend URL
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -78,7 +83,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
 }
 
-AUTH_USER_MODEL = 'api.UserProfile'  # Replace 'api' with your actual app name if different
+AUTH_USER_MODEL = 'api.CustomUser'
 
 # JWT Settings
 SIMPLE_JWT = {
@@ -120,6 +125,11 @@ INSTALLED_APPS = [
     
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [],
+    'DEFAULT_THROTTLE_RATES': {}
+}
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -151,6 +161,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
+#SESSION COOKIES CONFIGURATION
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Strict'
+SESSION_COOKIE_SAMESITE = 'Strict'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -158,7 +175,7 @@ WSGI_APPLICATION = "backend.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'PHB_DB',
+        'NAME': 'PHB_DATABASE',
         'USER': 'root',
         'PASSWORD': 'alpha12345',
         'HOST': 'localhost',
@@ -218,3 +235,47 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Add OpenAI settings
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
+OPENAI_MAX_TOKENS = int(os.getenv('OPENAI_MAX_TOKENS', '300'))
+OPENAI_TEMPERATURE = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
+
+# Redis Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
+# Cache time for simplified clinical notes (24 hours)
+CLINICAL_NOTE_CACHE_TTL = 60 * 60 * 24
+
+# Override settings for tests
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:'
+        }
+    }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
+    }
+    
+    # Disable throttling for registration tests but keep login throttling
+    REST_FRAMEWORK = {
+        'DEFAULT_THROTTLE_CLASSES': [],  # Remove global throttling
+        'DEFAULT_THROTTLE_RATES': {
+            'anon': None,
+            'user': None,
+            'login': '5/minute',  # Keep only login throttling
+            'register': None
+        }
+    }
+
+    from api.tests.test_settings import *

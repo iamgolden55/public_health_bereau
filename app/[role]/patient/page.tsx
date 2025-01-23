@@ -246,6 +246,29 @@ const initialMessages: Message[] = [
   }
 ]
 
+// Define types outside the component
+type AgeCategory = {
+  range: string;
+  bgClass: string;
+  textClass: string;
+};
+
+const getAgeCategory = (age: number): AgeCategory => {
+  if (age <= 1) return { range: "Newborn/Infant", bgClass: "bg-blue-50", textClass: "text-blue-700" };
+  if (age <= 4) return { range: "Toddler", bgClass: "bg-green-50", textClass: "text-green-700" };
+  if (age <= 8) return { range: "Young Child", bgClass: "bg-yellow-50", textClass: "text-yellow-700" };
+  if (age <= 12) return { range: "Pre-teen", bgClass: "bg-orange-50", textClass: "text-orange-700" };
+  if (age <= 17) return { range: "Teenager", bgClass: "bg-red-50", textClass: "text-red-700" };
+  if (age <= 24) return { range: "Young Adult", bgClass: "bg-purple-50", textClass: "text-purple-700" };
+  if (age <= 34) return { range: "Early Adulthood", bgClass: "bg-indigo-50", textClass: "text-indigo-700" };
+  if (age <= 44) return { range: "Mid Adulthood", bgClass: "bg-pink-50", textClass: "text-pink-700" };
+  if (age <= 54) return { range: "Early Middle Age", bgClass: "bg-cyan-50", textClass: "text-cyan-700" };
+  if (age <= 64) return { range: "Late Middle Age", bgClass: "bg-teal-50", textClass: "text-teal-700" };
+  if (age <= 74) return { range: "Young Senior", bgClass: "bg-emerald-50", textClass: "text-emerald-700" };
+  if (age <= 84) return { range: "Middle Senior", bgClass: "bg-amber-50", textClass: "text-amber-700" };
+  return { range: "Super Senior", bgClass: "bg-rose-50", textClass: "text-rose-700" };
+};
+
 export default function Dashboard() {
   
   const router = useRouter();
@@ -479,6 +502,29 @@ export default function Dashboard() {
     }
   }
 
+  const calculateAge = (dob: string): number => {
+    console.log('Calculating age for DOB:', dob);
+    if (!dob) {
+      console.log('No date of birth provided');
+      return 0;
+    }
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const month = today.getMonth() - birthDate.getMonth();
+    if (month < 0 || (month === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    console.log('Calculated age:', age);
+    return age;
+  };
+
+  const age = calculateAge(userData?.date_of_birth || '');
+  console.log('User data:', userData);
+  console.log('Final age:', age);
+
+  const category = getAgeCategory(age);
+
   const renderContent = () => {
     switch (activeSection) {
       case 'home':
@@ -589,28 +635,6 @@ export default function Dashboard() {
 
                 const age = calculateAge(userData?.date_of_birth || '');
                 
-                type AgeCategory = {
-                  range: string;
-                  bgClass: string;
-                  textClass: string;
-                };
-                
-                const getAgeCategory = (age: number): AgeCategory => {
-                  if (age <= 1) return { range: "Newborn/Infant", bgClass: "bg-blue-50", textClass: "text-blue-700" };
-                  if (age <= 4) return { range: "Toddler", bgClass: "bg-green-50", textClass: "text-green-700" };
-                  if (age <= 8) return { range: "Young Child", bgClass: "bg-yellow-50", textClass: "text-yellow-700" };
-                  if (age <= 12) return { range: "Pre-teen", bgClass: "bg-orange-50", textClass: "text-orange-700" };
-                  if (age <= 17) return { range: "Teenager", bgClass: "bg-red-50", textClass: "text-red-700" };
-                  if (age <= 24) return { range: "Young Adult", bgClass: "bg-purple-50", textClass: "text-purple-700" };
-                  if (age <= 34) return { range: "Early Adulthood", bgClass: "bg-indigo-50", textClass: "text-indigo-700" };
-                  if (age <= 44) return { range: "Mid Adulthood", bgClass: "bg-pink-50", textClass: "text-pink-700" };
-                  if (age <= 54) return { range: "Early Middle Age", bgClass: "bg-cyan-50", textClass: "text-cyan-700" };
-                  if (age <= 64) return { range: "Late Middle Age", bgClass: "bg-teal-50", textClass: "text-teal-700" };
-                  if (age <= 74) return { range: "Young Senior", bgClass: "bg-emerald-50", textClass: "text-emerald-700" };
-                  if (age <= 84) return { range: "Middle Senior", bgClass: "bg-amber-50", textClass: "text-amber-700" };
-                  return { range: "Super Senior", bgClass: "bg-rose-50", textClass: "text-rose-700" };
-                };
-
                 const category = getAgeCategory(age);
 
                 return (

@@ -1,278 +1,280 @@
-# This file contains the class-based views
+# This file contains the class-based views for the authentication API endpoints located in the "authentication_viewset/class_views.py" .
 
 from ..imports import *
+from django.db import transaction  # Add this import
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework.permissions import AllowAny  # Add this import line
+from rest_framework_simplejwt.tokens import RefreshToken
+from urllib.parse import quote
+import json
+from django.conf import settings
 
 # ============= Authentication Views =============
 class RegisterView(APIView):
     def post(self, request):
-        print("Registration data received:", request.data)  # Debug log
-        serializer = UserProfileSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
-                print(f"User created successfully: {user.email}")  # Debug log
-                
-                # Generate the verification link
-                verification_link = f"http://127.0.0.1:8000/api/verify-email/{user.verification_token}/"
-                
-                # HTML Email Template
-                html_message = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>Email Verification</title>
-                    <style>
-                        body {{
-                            font-family: Arial, sans-serif;
-                            line-height: 1.6;
-                            margin: 0;
-                            padding: 20px;
-                            background-color: #f4f4f4;
-                        }}
-                        .container {{
-                            max-width: 600px;
-                            margin: 0 auto;
-                            background: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                        }}
-                        .header {{
-                            text-align: center;
-                            padding: 20px;
-                            background: #1a73e8;
-                            color: white;
-                            border-radius: 5px 5px 0 0;
-                        }}
-                        .content {{
-                            padding: 20px;
-                            text-align: center;
-                        }}
-                        .button {{
-                            display: inline-block;
-                            padding: 12px 24px;
-                            background: #1a73e8;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 5px;
-                            margin: 20px 0;
-                        }}
-                        .button:hover {{
-                            background: #1557b0;
-                        }}
-                        .footer {{
-                            text-align: center;
-                            padding: 20px;
-                            color: #666;
-                            font-size: 12px;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="header">
-                            <h1>Welcome to Our Platform!</h1>
-                        </div>
-                        <div class="content">
-                            <h2>Verify Your Email Address</h2>
-                            <p>Thank you for registering with us. To complete your registration, please verify your email address by clicking the button below:</p>
-                            <a href="{verification_link}" class="button">Verify Email</a>
-                            <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
-                            <p style="word-break: break-all; color: #666;">
-                                {verification_link}
-                            </p>
-                            <p>This link will expire in 24 hours.</p>
-                        </div>
-                        <div class="footer">
-                            <p>If you didn't create an account, you can safely ignore this email.</p>
-                            <p>&copy; {datetime.now().year} Your Company Name. All rights reserved.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                """
-                
-                # Plain text version for email clients that don't support HTML
-                plain_message = f"""
-                Welcome to Our Platform!
-
-                Please verify your email address by clicking the following link:
-                {verification_link}
-
-                If you didn't create an account, you can safely ignore this email.
-                """
-                
-                subject = "Verify Your Email"
-                from_email = settings.DEFAULT_FROM_EMAIL
-                to_email = [user.email]
-                
-                try:
-                    # Send email with both HTML and plain text versions
-                    send_mail(
-                        subject,
-                        plain_message,
-                        from_email,
-                        to_email,
-                        html_message=html_message
-                    )
-                    print(f"Verification email sent to: {user.email}")  # Debug log
-                except Exception as e:
-                    print(f"Email sending failed: {str(e)}")  # Debug log
-                    return Response(
-                        {"error": f"Failed to send email: {str(e)}"}, 
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-                
-                return Response(
-                    {"message": "Account created. Please verify your email."}, 
-                    status=status.HTTP_201_CREATED
-                )
-            except Exception as e:
-                print(f"User creation failed: {str(e)}")  # Debug log
-                return Response(
-                    {"error": f"Failed to create account: {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        print("Registration data received:", request.data)
         
-        print("Validation errors:", serializer.errors)  # Debug log
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Validate password first before any other processing
+            password = request.data.get('password')
+            try:
+                # Custom password validation rules
+                if len(password) < 8:
+                    raise ValidationError('This password is too short')
+                if not any(c.isupper() for c in password):
+                    raise ValidationError('This password must contain at least 1 uppercase letter')
+                if not any(c.isdigit() for c in password):
+                    raise ValidationError('This password must contain at least 1 number')
+                
+                # Django's built-in validation
+                validate_password(password)
+                
+            except ValidationError as e:
+                return Response(
+                    {'password': [str(e) if isinstance(e, str) else e.messages[0]]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            with transaction.atomic():
+                serializer = UserProfileSerializer(data=request.data)
+                if serializer.is_valid():
+                    user = serializer.save()
+                    print(f"User created successfully: {user.user.email}")
+                    
+                    # Generate verification token and link
+                    verification_link = f"http://127.0.0.1:8000/api/verify-email/{user.verification_token}/"
+                    
+                    # Send verification email
+                    try:
+                        send_mail(
+                            subject="Verify Your Email",
+                            message=f"Please verify your email: {verification_link}",
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[user.user.email],
+                            html_message=self.get_email_template(verification_link)
+                        )
+                        print(f"Verification email sent to: {user.user.email}")
+                    except Exception as e:
+                        print(f"Email sending failed: {str(e)}")
+                        raise Exception(f"Email sending failed: {str(e)}")
+
+                    return Response({
+                        "message": "Account created. Please verify your email.",
+                        "user": {
+                            "id": user.id,
+                            "email": user.user.email,
+                            "first_name": user.first_name,
+                            "last_name": user.last_name,
+                            "gender": user.gender,
+                            "hpn": user.hpn
+                        }
+                    }, status=status.HTTP_201_CREATED)
+            
+            print("Validation errors:", serializer.errors)
+            return Response(
+                serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        except Exception as e:
+            print(f"Registration failed: {str(e)}")
+            return Response(
+                {"error": f"Registration failed: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def get_email_template(self, verification_link):
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Verify Your Email</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #f4f4f4;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    padding: 20px;
+                    background: #1a73e8;
+                    color: white;
+                    border-radius: 5px 5px 0 0;
+                }}
+                .content {{
+                    padding: 20px;
+                    text-align: center;
+                }}
+                .button {{
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background: #1a73e8;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    margin: 20px 0;
+                }}
+                .button:hover {{
+                    background: #1557b0;
+                }}
+                .footer {{
+                    text-align: center;
+                    padding: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Welcome to Our Platform!</h1>
+                </div>
+                <div class="content">
+                    <h2>Verify Your Email Address</h2>
+                    <p>Click the link below to verify your email:</p>
+                    <a href="{verification_link}" class="button">Verify Email</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
 
 class VerifyEmailView(APIView):
-    def get(self, request, token=None):  # Add token parameter
+    permission_classes = [AllowAny]
+    
+    def get(self, request, token):
         try:
-            if not token:
-                token = request.GET.get('token')  # Get token from query params
-                
-            user = UserProfile.objects.get(verification_token=token)
+            # Find the user profile by verification token
+            user_profile = UserProfile.objects.get(verification_token=token)
             
-            if user.is_verified:
-                return HttpResponseRedirect("http://localhost:3000/[role]/patient")
+            # Get the CustomUser instance (this is what we need for JWT)
+            user = user_profile.user  # Get the actual CustomUser instance
             
-            user.is_verified = True
-            user.save()
+            if not user.is_active:
+                user.is_active = True
+                user.save()
+            
+            user_profile.is_verified = True
+            user_profile.save()
+            
             print(f"User verified successfully: {user.email}")
             
-            # Generate JWT token
-            refresh = RefreshToken.for_user(user)
-            jwt_token = str(refresh.access_token)
-            print("Generated JWT token:", jwt_token)
-
-            # Add user data to the URL
-            import urllib.parse
-            import json
+            # Create tokens using the CustomUser instance
+            refresh = RefreshToken.for_user(user)  # Use CustomUser, not UserProfile
+            access_token = str(refresh.access_token)
             
+            # Prepare user data for frontend
             user_data = {
-                'user_id': user.id,
+                'id': user.id,
                 'email': user.email,
-                'is_verified': user.is_verified,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'hpn': user.hpn  # Add HPN number
+                'first_name': user_profile.first_name,
+                'last_name': user_profile.last_name,
+                'is_verified': user_profile.is_verified
             }
             
-            encoded_data = urllib.parse.quote(json.dumps(user_data))
-            redirect_url = f"http://localhost:3000/auth/verify-email?token={jwt_token}&userData={encoded_data}&status=success"
-            print("Redirecting to:", redirect_url)
-            return HttpResponseRedirect(redirect_url)
+            # Encode the data for URL
+            encoded_data = quote(json.dumps(user_data))
+            
+            # Redirect to frontend with success status and data
+            redirect_url = (
+                f"{settings.FRONTEND_URL}/auth/verify-email"
+                f"?status=success&token={access_token}"
+                f"&userData={encoded_data}"
+            )
+            
+            return redirect(redirect_url)
             
         except UserProfile.DoesNotExist:
-            print("User not found for token:", token)
-            return HttpResponseRedirect("http://localhost:3000/auth/verify-email?error=invalid_token")
+            print(f"Verification error: User profile not found for token {token}")
+            return redirect(f"{settings.FRONTEND_URL}/auth/verify-email?error=invalid_token")
         except Exception as e:
             print(f"Verification error: {str(e)}")
-            return HttpResponseRedirect("http://localhost:3000/auth/verify-email?error=verification_failed")
-        
+            return redirect(f"{settings.FRONTEND_URL}/auth/verify-email?error=verification_failed")
+
+class LoginRateThrottle(AnonRateThrottle):
+    rate = '5/minute'
+
 class LoginView(APIView):
+    throttle_classes = [LoginRateThrottle]
+    
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
         
-        print(f"Login attempt for email: {email}")  # Debug log
-
         try:
-            # Get user with related medical professional data
-            user = UserProfile.objects.select_related('medicalprofessional').get(email=email)
-            print(f"Found user: {user.email}, verified: {user.is_verified}")
-            
-            # Debug log for professional status
-            print(f"Medical Professional relation exists: {hasattr(user, 'medicalprofessional')}")
-            if hasattr(user, 'medicalprofessional'):
-                print(f"Professional details: {user.medicalprofessional.__dict__}")
-
-            if not user.is_verified:
-                return Response(
-                    {"error": "Please verify your email before logging in"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
+            user = CustomUser.objects.get(email=email)
             if not user.check_password(password):
                 return Response(
-                    {"error": "Invalid credentials"},
+                    {'error': 'Invalid credentials'}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-
-            # At this point, user is authenticated. Prepare response data
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-
-            # Determine professional status
-            is_professional = False
+            
+            # Get user profile
+            user_profile = UserProfile.objects.get(user=user)
+            
+            # Check if user has professional access
+            has_professional_access = hasattr(user_profile, 'medicalprofessional')
             professional_details = None
-            try:
-                if hasattr(request.user, 'medicalprofessional'):
-                    professional = request.user.medicalprofessional
-                    professional_data = {
-                        'license_number': professional.license_number,
-                        'professional_type': professional.professional_type,
-                        'specialization': professional.specialization,
-                        'department': BasicDepartmentSerializer(professional.department).data if professional.department else None,
-                        'is_verified': professional.is_verified,
-                    }
-            except Exception as e:
-                print(f"Error getting professional details: {str(e)}")
-
-            # Prepare user data
-            user_data = {
-                'id': user.id,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'is_verified': user.is_verified,
-                'hpn': user.hpn,
-                'is_staff': user.is_staff,
-                'has_professional_access': is_professional,
-                'professional_details': professional_details,
-                'last_active_view': 'professional' if is_professional else 'patient',
-                'role': 'professional' if is_professional else 'patient',
+            
+            if has_professional_access:
+                professional = user_profile.medicalprofessional
+                professional_details = {
+                    'license_number': professional.license_number,
+                    'professional_type': professional.professional_type,
+                    'specialization': professional.specialization,
+                    'is_verified': professional.is_verified,
+                    'department': professional.department.id if professional.department else None,
+                    'hospital': professional.hospital.id if professional.hospital else None
+                }
                 
-                # Basic health data
-                'blood_type': user.blood_type,
-                'allergies': user.allergies,
-                'chronic_conditions': user.chronic_conditions,
-                'emergency_contact_name': user.emergency_contact_name,
-                'emergency_contact_phone': user.emergency_contact_phone,
-                'is_high_risk': user.is_high_risk
-            }
-
-            print(f"Prepared user data: {user_data}")  # Debug log
-
+            # Create tokens
+            refresh = RefreshToken.for_user(user)
+            
+            # Add debug logging
+            print(f"User profile date of birth: {user_profile.date_of_birth}")
+            # Ensure date is formatted as YYYY-MM-DD
+            formatted_date_of_birth = user_profile.date_of_birth.strftime('%Y-%m-%d') if user_profile.date_of_birth else None
+            
             return Response({
-                'access': access_token,
                 'refresh': str(refresh),
-                'user': user_data
-            })
-
-        except UserProfile.DoesNotExist:
-            print(f"No user found with email: {email}")
+                'access': str(refresh.access_token),
+                'user': {
+                    'id': user_profile.id,
+                    'email': user.email,
+                    'first_name': user_profile.first_name,
+                    'last_name': user_profile.last_name,
+                    'is_verified': user_profile.is_verified,
+                    'hpn': user_profile.hpn,
+                    'date_of_birth': user_profile.date_of_birth.strftime('%Y-%m-%d') if user_profile.date_of_birth else None,
+                    'role': 'professional' if has_professional_access and professional_details['is_verified'] else 'patient',
+                    'has_professional_access': has_professional_access,
+                    'professional_details': professional_details,
+                    'last_active_view': user_profile.last_active_view or 'patient'
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except CustomUser.DoesNotExist:
             return Response(
-                {"error": "Invalid credentials"},
+                {'error': 'No user found with this email'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        except Exception as e:
-            print(f"Login error: {str(e)}")
+        except UserProfile.DoesNotExist:
             return Response(
-                {"error": "Login failed"},
+                {'error': 'User profile not found'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -423,35 +425,44 @@ class SocialAuthView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Get or create user
-            user, created = UserProfile.objects.get_or_create(
-                email=user_info['email'],
-                defaults={
-                    'username': user_info['email'],  # Use email as username
-                    'first_name': user_info.get('first_name', ''),
-                    'last_name': user_info.get('last_name', ''),
-                    'is_verified': True,  # Social auth users are pre-verified
-                    'social_provider': provider,
-                    'social_id': user_info.get('sub', '')  # Provider's user ID
-                }
-            )
+            with transaction.atomic():
+                # First get or create CustomUser
+                custom_user, user_created = CustomUser.objects.get_or_create(
+                    email=user_info['email'],
+                    defaults={
+                        'username': user_info['email'],
+                        'first_name': user_info.get('first_name', ''),
+                        'last_name': user_info.get('last_name', '')
+                    }
+                )
+                
+                # Then get or create UserProfile
+                user_profile, profile_created = UserProfile.objects.get_or_create(
+                    user=custom_user,
+                    defaults={
+                        'is_verified': True,
+                        'social_provider': provider,
+                        'social_id': user_info.get('sub', '')
+                    }
+                )
 
             # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
+            refresh = RefreshToken.for_user(user_profile)
 
             # Log the success
-            print(f"Social auth successful: {provider} - {user.email}")
+            print(f"Social auth successful: {provider} - {user_profile.user.email}")
 
             return Response({
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
                 'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'is_verified': user.is_verified
+                    'id': user_profile.id,
+                    'email': user_profile.user.email,
+                    'first_name': user_profile.first_name,
+                    'last_name': user_profile.last_name,
+                    'is_verified': user_profile.is_verified
                 },
-                'created': created  # Indicates if this is a new user
+                'created': profile_created  # Indicates if this is a new user
             })
 
         except ValueError as e:
@@ -478,7 +489,7 @@ class LogoutView(APIView):
                 token = RefreshToken(refresh_token)
                 token.blacklist()
             
-            print(f"User logged out successfully: {request.user.email}")  # Debug log
+            print(f"User logged out successfully: {request.user.user.email}")  # Debug log
             return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
             
         except TokenError as e:
@@ -488,3 +499,9 @@ class LogoutView(APIView):
         except Exception as e:
             print(f"Logout error: {str(e)}")  # Debug log
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def validate_request_origin(request):
+    allowed_origins = ['http://localhost:3000']
+    origin = request.META.get('HTTP_ORIGIN')
+    if origin not in allowed_origins:
+        raise PermissionDenied("Invalid origin")

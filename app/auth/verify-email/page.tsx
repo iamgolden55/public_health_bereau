@@ -19,10 +19,11 @@ useEffect(() => {
     const status = searchParams.get('status');
 
     if (error) {
+      console.error('Verification error:', error);
       setStatus('error');
       setErrorMessage(error === 'invalid_token' 
         ? 'Invalid verification token' 
-        : 'Verification failed');
+        : 'Verification failed. Please try again or contact support.');
       return;
     }
 
@@ -34,28 +35,12 @@ useEffect(() => {
         localStorage.setItem('token', token);
         localStorage.setItem('userData', JSON.stringify(userData));
 
-        // Basic API test
-        const response = await fetch('http://127.0.0.1:8000/api/user/', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const userDataFromApi = await response.json();
-          // Update stored user data with fresh data from API
-          localStorage.setItem('userData', JSON.stringify(userDataFromApi));
-          setStatus('success');
-          setTimeout(() => router.push('/[role]/patient'), 2000);
-          return;
-        }
-        throw new Error('Token verification failed');
-
+        setStatus('success');
+        setTimeout(() => router.push('/[role]/patient'), 2000);
       } catch (error) {
-        console.error('Verification error:', error);
+        console.error('Error processing verification data:', error);
         setStatus('error');
-        setErrorMessage('Error verifying email');
+        setErrorMessage('Error processing verification data');
       }
     } else {
       setStatus('error');

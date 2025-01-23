@@ -35,15 +35,32 @@ interface LoginResponse {
     first_name: string
     last_name: string
     is_verified: boolean
-    role: string
+    hpn: string
+    date_of_birth: string
+    role: 'professional' | 'patient'
+    has_professional_access: boolean
+    professional_details: {
+      license_number: string
+      professional_type: string
+      specialization: string
+      is_verified: boolean
+      department?: number
+      hospital?: number
+    } | null
+    last_active_view: 'professional' | 'patient'
   }
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api'
 
+const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(); // Or any other format you prefer
+}
+
 export default function LoginPage() {
   // Get necessary functions from user context
-  const { updateUserData } = useUser()
+  const { updateUserData, setUserData } = useUser()
   const { userData } = useUser();
   const router = useRouter()
   const { toast } = useToast()
@@ -90,59 +107,54 @@ export default function LoginPage() {
 
   // Main login handler
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
     
     try {
-      console.log('Attempting login...')
-      const response = await fetch(`${API_BASE_URL}/login/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
+        const response = await fetch(`${API_BASE_URL}/api/login/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+        });
 
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Invalid credentials")
-      }
+        const data: LoginResponse = await response.json();
+        console.log('Login response:', data);
+        
+        if (!response.ok) {
+            throw new Error(data.error || "Login failed");
+        }
 
-      // Store tokens
-      localStorage.setItem("token", data.access)
-      localStorage.setItem("refresh", data.refresh)
-      document.cookie = `token=${data.access}; path=/; secure; samesite=lax; max-age=3600; domain=${window.location.hostname}`
+        // Store tokens
+        localStorage.setItem("token", data.access);
+        localStorage.setItem("refresh", data.refresh);
 
-      // Update user data and get role through context
-      const userData = await updateUserData(data.access)
-      
-      // Use the returned userData for navigation
-      const defaultView = userData?.last_active_view || 'patient'
-      localStorage.setItem("userRole", defaultView)
-      
-      console.log('Login successful, redirecting to:', `/role/${defaultView}`)
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-        duration: 3000,
-      })
-      
-      // Ensure the router pushes after the user data is updated
-      await router.push(`/role/${defaultView}`)
-      // Wait for the router to finish before setting loading to false
-      setIsLoading(false);
+        // Store user role and data
+        localStorage.setItem("userRole", data.user.role);
+        console.log('Setting user data:', data.user);
+        setUserData(data.user);
+        
+        toast({
+            title: "Login Successful",
+            description: "Welcome back!",
+            duration: 3000,
+        });
+        
+        router.push(`/role/${data.user.role}`);
 
-    } catch (error) {
-      console.error('Login error:', error)
-      setError(error.message)
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive",
-      })
+    } catch (err) {
+        console.error('Login error:', err);
+        const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+        setError(errorMessage);
+        toast({
+            title: "Login Failed",
+            description: errorMessage,
+            variant: "destructive",
+        });
     } finally {
-      setIsLoading(false)
+        setIsLoading(false);
     }
-  }
+  };
 
   // Social login handler
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
@@ -151,7 +163,7 @@ export default function LoginPage() {
     console.log(`Initiating ${provider} login...`)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/social-auth/${provider}/`, {
+      const response = await fetch(`${API_BASE_URL}/api/social-auth/${provider}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
@@ -192,7 +204,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch(`${API_BASE_URL}/reset-password/`, {
+      const response = await fetch(`${API_BASE_URL}/api/reset-password/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail }),
@@ -224,7 +236,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch(`${API_BASE_URL}/resend-verification/`, {
+      const response = await fetch(`${API_BASE_URL}/api/resend-verification/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resendEmail }),
@@ -248,6 +260,11 @@ export default function LoginPage() {
       setIsResending(false)
     }
   }
+
+  if (userData?.date_of_birth) {
+    console.log(formatDate(userData.date_of_birth));
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-6xl">

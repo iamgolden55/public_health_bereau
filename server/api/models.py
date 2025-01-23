@@ -2,11 +2,11 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 import uuid
 from django.utils.crypto import get_random_string
-from django.contrib.postgres.fields import ArrayField
 from django.utils import timezone
 from datetime import timedelta
 from django.core.exceptions import ValidationError
 import json
+from django.db.models import JSONField
 
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
@@ -66,24 +66,46 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('username', email)
         return self.create_user(email, password, **extra_fields)
 
-class UserProfile(AbstractUser):
-    # Fields from AbstractUser that manages user authentication and permissions
-    date_of_birth = models.DateField(null=True, blank=True)
+class CustomUser(AbstractUser):
+    email = models.EmailField(unique=True)
+    objects = CustomUserManager()
+    
+    USERNAME_FIELD = 'email'  # Use email for login instead of username
+    REQUIRED_FIELDS = ['first_name', 'last_name']  # Required fields when creating a superuser
+    
+    def __str__(self):
+        return self.email
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=1, choices=[
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('O', 'Other')
+    ])
+    phone_number = models.CharField(max_length=15, null=True, blank=True)
     country = models.CharField(max_length=100, null=True, blank=True)
-    city = models.CharField(max_length=100, null=True, blank=True)  # Fixed max_length
-    hpn = models.CharField(max_length=30, unique=True, editable=False, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Authentication and Verification
     is_verified = models.BooleanField(default=False)
     verification_token = models.UUIDField(default=uuid.uuid4, unique=True)
     password_reset_token = models.CharField(max_length=64, null=True, blank=True)
     social_provider = models.CharField(max_length=20, blank=True, null=True)
     social_id = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Hospital and Dashboard Preferences
     primary_hospital = models.ForeignKey('Hospital', on_delete=models.SET_NULL, null=True, blank=True)
     last_active_view = models.CharField(
         max_length=20,
         choices=[('patient', 'Patient Dashboard'), ('professional', 'Professional Dashboard')],
         default='patient'
     )
-
+    
+    # GP Registration Fields
     has_registered_gp = models.BooleanField(default=False)
     current_gp_practice = models.ForeignKey(
         'GPPractice', 
@@ -100,7 +122,7 @@ class UserProfile(AbstractUser):
         related_name='current_patients'
     )
 
-    # Enhanced medical fields
+    # Medical Information
     blood_type = models.CharField(
         max_length=5,
         choices=[
@@ -113,19 +135,23 @@ class UserProfile(AbstractUser):
     )
     allergies = models.TextField(null=True, blank=True)
     chronic_conditions = models.TextField(null=True, blank=True)
+    
+    # Emergency Contact
     emergency_contact_name = models.CharField(max_length=100, null=True, blank=True)
     emergency_contact_phone = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Risk and Visit Tracking
     is_high_risk = models.BooleanField(default=False)
     last_visit_date = models.DateTimeField(null=True, blank=True)
-
-    objects = CustomUserManager()
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
-    email = models.EmailField(unique=True)
+    
+    # Health Profile Number
+    hpn = models.CharField(max_length=50, unique=True, editable=False)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        if not self.username:
-            self.username = self.email
         if not self.hpn:
             state_code = self.city[:3].upper() if self.city else "UNK"
             unique_number = str(uuid.uuid4().int)[:10]
@@ -151,13 +177,22 @@ class UserProfile(AbstractUser):
                 'hospital': self.medicalprofessional.hospital.name if self.medicalprofessional.hospital else None,
                 'is_verified': self.medicalprofessional.is_verified
             }
-        return None   
+        return None
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.hpn})"
 
     def update_dashboard_preference(self, view_type):
         """Update user's last active dashboard view"""
         if view_type in ['patient', 'professional']:
             self.last_active_view = view_type
-            self.save(update_fields=['last_active_view']) 
+            self.save(update_fields=['last_active_view'])
+
+    def get_default_dashboard(self):
+        """Returns the user's last active dashboard or default based on role"""
+        if self.last_active_view:
+            return self.last_active_view
+        return 'professional' if self.has_professional_access() else 'patient'
 
 
 # ============= General Practice System =================
@@ -188,7 +223,7 @@ class GeneralPractitioner(models.Model):
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
     practice = models.ForeignKey(GPPractice, on_delete=models.CASCADE, related_name='gp_doctors')
     license_number = models.CharField(max_length=50, unique=True)
-    specializations = models.JSONField(default=list)
+    specializations = JSONField(default=list)
     availability_schedule = models.JSONField(default=dict)
     max_daily_appointments = models.IntegerField(default=20)
     is_accepting_appointments = models.BooleanField(default=True)
@@ -254,11 +289,12 @@ class MedicalCase(models.Model):
 class Department(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    icon = models.CharField(max_length=50)  # Store icon name
+    icon = models.CharField(max_length=50)
+    hospital = models.ForeignKey('Hospital', on_delete=models.CASCADE, related_name='departments', null=True)
     active_cases = models.IntegerField(default=0)
     specialists = models.ManyToManyField(
         'MedicalProfessional',
-        related_name='specializations'  # Add this related_name
+        related_name='specializations'
     )
 
     def __str__(self):
@@ -266,22 +302,16 @@ class Department(models.Model):
 
 # ============= Hospital System =============
 class Hospital(models.Model):
-    name = models.CharField(max_length=200)
-    registration_number = models.CharField(max_length=50, unique=True)
-    facility_type = models.CharField(
-        max_length=50,
-        choices=[
-            ('GENERAL', 'General Hospital'),
-            ('SPECIALTY', 'Specialty Hospital'),
-            ('CLINIC', 'Medical Clinic'),
-            ('EMERGENCY', 'Emergency Center')
-        ]
-    )
-    address = models.TextField()
+    name = models.CharField(max_length=255)
+    facility_type = models.CharField(max_length=100)
+    address = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=20)
     email = models.EmailField()
+    website = models.URLField(blank=True, null=True)
+    license_number = models.CharField(max_length=50, blank=True, null=True)
+    accreditation_status = models.CharField(max_length=50, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     has_emergency = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -571,10 +601,16 @@ class MedicalRecord(models.Model):
     record_date = models.DateTimeField(auto_now_add=True)
     chief_complaint = models.TextField()
     present_illness = models.TextField()
-    vital_signs = models.CharField(max_length=255)  # Store BP, temp, pulse, etc.
+    vital_signs = models.JSONField(default=dict, blank=True)
     assessment = models.TextField()
     plan = models.TextField()
     is_confidential = models.BooleanField(default=False)
+    mental_health_status = models.CharField(max_length=50, blank=True)
+    mental_health_assessment = models.TextField(blank=True)
+    mood_evaluation = models.CharField(max_length=100, blank=True)
+    anxiety_level = models.CharField(max_length=50, blank=True)
+    therapy_notes = models.TextField(blank=True)
+    sleep_quality = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
 
@@ -603,155 +639,156 @@ class RecordShare(models.Model):
 
 # ============= Diagnostic System =============
 class Diagnosis(models.Model):
-   medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='diagnoses')
-   diagnosis_code = models.CharField(max_length=20)  # ICD-10 code
-   description = models.TextField()
-   diagnosis_type = models.CharField(
-       max_length=20,
-       choices=[
-           ('PRIMARY', 'Primary'),
-           ('SECONDARY', 'Secondary'),
-           ('DIFFERENTIAL', 'Differential')
-       ]
-   )
-   diagnosed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
-   diagnosis_date = models.DateTimeField(auto_now_add=True)
-   notes = models.TextField(null=True, blank=True)
-   created_at = models.DateTimeField(auto_now_add=True)
-   updated_at = models.DateTimeField(auto_now_add=True)
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='diagnoses')
+    diagnosis_code = models.CharField(max_length=20)  # ICD-10 code
+    description = models.TextField()
+    diagnosis_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('PRIMARY', 'Primary'),
+            ('SECONDARY', 'Secondary'),
+            ('DIFFERENTIAL', 'Differential')
+        ]
+    )
+    diagnosed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    diagnosis_date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
-   def __str__(self):
-       return f"{self.diagnosis_code} - {self.description[:50]}"
+    def __str__(self):
+        return f"{self.diagnosis_code} - {self.description[:50]}"
 
 class Medication(models.Model):
-   medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='medications')
-   name = models.CharField(max_length=200)
-   dosage = models.CharField(max_length=100)
-   frequency = models.CharField(max_length=100)
-   route = models.CharField(
-       max_length=20,
-       choices=[
-           ('ORAL', 'Oral'),
-           ('IV', 'Intravenous'),
-           ('IM', 'Intramuscular'),
-           ('SC', 'Subcutaneous'),
-           ('TOPICAL', 'Topical')
-       ]
-   )
-   start_date = models.DateField()
-   end_date = models.DateField(null=True, blank=True)
-   prescribed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
-   is_active = models.BooleanField(default=True)
-   instructions = models.TextField()
-   side_effects = models.TextField(null=True, blank=True)
-   created_at = models.DateTimeField(auto_now_add=True)
-   updated_at = models.DateTimeField(auto_now_add=True)
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='medications')
+    name = models.CharField(max_length=200)
+    dosage = models.CharField(max_length=100)
+    frequency = models.CharField(max_length=100)
+    route = models.CharField(
+        max_length=20,
+        choices=[
+            ('ORAL', 'Oral'),
+            ('IV', 'Intravenous'),
+            ('IM', 'Intramuscular'),
+            ('SC', 'Subcutaneous'),
+            ('TOPICAL', 'Topical')
+        ]
+    )
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    prescribed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    is_active = models.BooleanField(default=True)
+    instructions = models.TextField()
+    side_effects = models.TextField(null=True, blank=True)
+    purpose = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
-   def __str__(self):
-       return f"{self.name} - {self.dosage}"
+    def __str__(self):
+        return f"{self.name} - {self.dosage}"
 
 class Procedure(models.Model):
-   medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='procedures')
-   procedure_code = models.CharField(max_length=20)  # CPT code
-   name = models.CharField(max_length=200)
-   description = models.TextField()
-   performed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
-   procedure_date = models.DateTimeField()
-   location = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True)
-   status = models.CharField(
-       max_length=20,
-       choices=[
-           ('SCHEDULED', 'Scheduled'),
-           ('IN_PROGRESS', 'In Progress'),
-           ('COMPLETED', 'Completed'),
-           ('CANCELLED', 'Cancelled')
-       ],
-       default='SCHEDULED'
-   )
-   notes = models.TextField(null=True, blank=True)
-   complications = models.TextField(null=True, blank=True)
-   created_at = models.DateTimeField(auto_now_add=True)
-   updated_at = models.DateTimeField(auto_now_add=True)
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='procedures')
+    procedure_code = models.CharField(max_length=20)  # CPT code
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    performed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    procedure_date = models.DateTimeField()
+    location = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('SCHEDULED', 'Scheduled'),
+            ('IN_PROGRESS', 'In Progress'),
+            ('COMPLETED', 'Completed'),
+            ('CANCELLED', 'Cancelled')
+        ],
+        default='SCHEDULED'
+    )
+    notes = models.TextField(null=True, blank=True)
+    complications = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
-   def __str__(self):
-       return f"{self.procedure_code} - {self.name}"
+    def __str__(self):
+        return f"{self.procedure_code} - {self.name}"
 
 class LabResult(models.Model):
-   medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='lab_results')
-   test_name = models.CharField(max_length=200)
-   test_code = models.CharField(max_length=50)  # LOINC code
-   category = models.CharField(max_length=100)
-   result_value = models.CharField(max_length=100)
-   unit = models.CharField(max_length=50)
-   reference_range = models.CharField(max_length=100)
-   is_abnormal = models.BooleanField(default=False)
-   performed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
-   test_date = models.DateTimeField()
-   result_date = models.DateTimeField()
-   notes = models.TextField(null=True, blank=True)
-   created_at = models.DateTimeField(auto_now_add=True)
-   updated_at = models.DateTimeField(auto_now_add=True)
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='lab_results')
+    test_name = models.CharField(max_length=200)
+    test_code = models.CharField(max_length=50)  # LOINC code
+    category = models.CharField(max_length=100)
+    result_value = models.CharField(max_length=100)
+    unit = models.CharField(max_length=50)
+    reference_range = models.CharField(max_length=100)
+    is_abnormal = models.BooleanField(default=False)
+    performed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    test_date = models.DateTimeField()
+    result_date = models.DateTimeField()
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
-   def __str__(self):
-       return f"{self.test_name} - {self.result_value} {self.unit}"
+    def __str__(self):
+        return f"{self.test_name} - {self.result_value} {self.unit}"
 
 # ============= Billing System =============
 class Bill(models.Model):
-   patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='bills')
-   provider = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
-   hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True)
-   appointment = models.OneToOneField(Appointment, on_delete=models.SET_NULL, null=True)
-   insurance = models.ForeignKey(Insurance, on_delete=models.SET_NULL, null=True)
-   bill_date = models.DateTimeField(auto_now_add=True)
-   total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-   insurance_covered = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-   patient_responsibility = models.DecimalField(max_digits=10, decimal_places=2)
-   status = models.CharField(
-       max_length=20,
-       choices=[
-           ('PENDING', 'Pending'),
-           ('SUBMITTED', 'Submitted to Insurance'),
-           ('PARTIALLY_PAID', 'Partially Paid'),
-           ('PAID', 'Paid'),
-           ('OVERDUE', 'Overdue'),
-           ('CANCELLED', 'Cancelled')
-       ],
-       default='PENDING'
-   )
-   due_date = models.DateField()
-   payment_method = models.CharField(
-       max_length=20,
-       choices=[
-           ('CASH', 'Cash'),
-           ('CARD', 'Credit/Debit Card'),
-           ('INSURANCE', 'Insurance'),
-           ('BANK_TRANSFER', 'Bank Transfer')
-       ],
-       null=True,
-       blank=True
-   )
-   notes = models.TextField(null=True, blank=True)
-   created_at = models.DateTimeField(auto_now_add=True)
-   updated_at = models.DateTimeField(auto_now_add=True)
+    patient = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='bills')
+    provider = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True)
+    appointment = models.OneToOneField(Appointment, on_delete=models.SET_NULL, null=True)
+    insurance = models.ForeignKey(Insurance, on_delete=models.SET_NULL, null=True)
+    bill_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    insurance_covered = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    patient_responsibility = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('SUBMITTED', 'Submitted to Insurance'),
+            ('PARTIALLY_PAID', 'Partially Paid'),
+            ('PAID', 'Paid'),
+            ('OVERDUE', 'Overdue'),
+            ('CANCELLED', 'Cancelled')
+        ],
+        default='PENDING'
+    )
+    due_date = models.DateField()
+    payment_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('CASH', 'Cash'),
+            ('CARD', 'Credit/Debit Card'),
+            ('INSURANCE', 'Insurance'),
+            ('BANK_TRANSFER', 'Bank Transfer')
+        ],
+        null=True,
+        blank=True
+    )
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
 
-   def __str__(self):
-       return f"Bill #{self.id} - {self.patient.get_full_name()} - ${self.total_amount}"
+    def __str__(self):
+        return f"Bill #{self.id} - {self.patient.get_full_name()} - ${self.total_amount}"
 
 class BillItem(models.Model):
-   bill = models.ForeignKey(Bill, on_delete=models.CASCADE, related_name='items')
-   description = models.CharField(max_length=200)
-   code = models.CharField(max_length=50)  # Billing code (CPT/ICD)
-   quantity = models.IntegerField(default=1)
-   unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-   total_price = models.DecimalField(max_digits=10, decimal_places=2)
-   created_at = models.DateTimeField(auto_now_add=True)
+    bill = models.ForeignKey(Bill, on_delete=models.CASCADE, related_name='items')
+    description = models.CharField(max_length=200)
+    code = models.CharField(max_length=50)  # Billing code (CPT/ICD)
+    quantity = models.IntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-   def save(self, *args, **kwargs):
-       self.total_price = self.quantity * self.unit_price
-       super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+        self.total_price = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
 
-   def __str__(self):
-       return f"{self.description} - ${self.total_price}"
+    def __str__(self):
+        return f"{self.description} - ${self.total_price}"
 
 # ============= Access Logging System =============
 class AccessLog(models.Model):
@@ -1542,3 +1579,225 @@ class PaymentTransaction(models.Model):
     status = models.CharField(max_length=20)
     processor_reference = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+
+# ============= Preventive Care System =============
+class Immunization(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='immunizations')
+    vaccine_name = models.CharField(max_length=200)
+    vaccine_code = models.CharField(max_length=50)  # CVX code
+    dose_number = models.IntegerField()
+    date_administered = models.DateTimeField()
+    next_due_date = models.DateTimeField(null=True, blank=True)
+    administered_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    manufacturer = models.CharField(max_length=100)
+    lot_number = models.CharField(max_length=50)
+    site = models.CharField(max_length=50)  # Body site where vaccine was administered
+    route = models.CharField(max_length=50)  # How vaccine was administered
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('COMPLETED', 'Completed'),
+            ('OVERDUE', 'Overdue'),
+            ('UPCOMING', 'Upcoming')
+        ]
+    )
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.vaccine_name} - Dose {self.dose_number}"
+
+# ============= Mental Health System =============
+class MentalHealthAssessment(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='mental_health_assessments')
+    assessment_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('PHQ9', 'Depression Screening'),
+            ('GAD7', 'Anxiety Assessment'),
+            ('MOOD', 'Mood Assessment'),
+            ('COGNITIVE', 'Cognitive Assessment')
+        ]
+    )
+    score = models.IntegerField()
+    severity = models.CharField(
+        max_length=20,
+        choices=[
+            ('MINIMAL', 'Minimal'),
+            ('MILD', 'Mild'),
+            ('MODERATE', 'Moderate'),
+            ('SEVERE', 'Severe')
+        ]
+    )
+    assessed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    assessment_date = models.DateTimeField()
+    next_assessment_date = models.DateTimeField(null=True, blank=True)
+    recommendations = models.TextField()
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.assessment_type} - {self.assessment_date}"
+
+# ============= Family History System =============
+class FamilyHistory(models.Model):
+    medical_record = models.OneToOneField(MedicalRecord, on_delete=models.CASCADE, related_name='family_history')
+    mother = models.TextField(blank=True)
+    father = models.TextField(blank=True)
+    siblings = models.TextField(blank=True)
+    maternal_history = models.TextField(blank=True)
+    paternal_history = models.TextField(blank=True)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.relation} - {self.condition}"
+
+# ============= Reproductive Health System =============
+class MenstrualCycle(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='menstrual_cycles')
+    cycle_startdate = models.DateField()
+    cycle_enddate = models.DateField(null=True, blank=True)
+    cycle_length = models.IntegerField()
+    flow_intensity = models.CharField(
+        max_length=20,
+        choices=[
+            ('LIGHT', 'Light'),
+            ('MODERATE', 'Moderate'),
+            ('HEAVY', 'Heavy')
+        ]
+    )
+    symptoms = models.JSONField(default=list)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Cycle starting {self.cycle_startdate}"
+
+class FertilityAssessment(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='fertility_assessments')
+    assessment_date = models.DateTimeField()
+    assessed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    amh_level = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    follicle_count = models.IntegerField(null=True, blank=True)
+    uterine_findings = models.TextField(null=True, blank=True)
+    ovarian_findings = models.TextField(null=True, blank=True)
+    recommendations = models.TextField()
+    next_assessment = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Fertility Assessment - {self.assessment_date}"
+
+class HormonePanel(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='hormone_panels')
+    test_date = models.DateField()
+    estrogen_level = models.CharField(max_length=50)
+    progesterone_level = models.CharField(max_length=50)
+    fsh_level = models.CharField(max_length=50)
+    lh_level = models.CharField(max_length=50)
+    testosterone_level = models.CharField(max_length=50)
+    prolactin_level = models.CharField(max_length=50)
+    is_abnormal = models.BooleanField(default=False)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Hormone Panel - {self.test_date}"
+
+class GynecologicalExam(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='gynecological_exams')
+    exam_date = models.DateTimeField()
+    performed_by = models.ForeignKey(MedicalProfessional, on_delete=models.SET_NULL, null=True)
+    exam_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('ROUTINE', 'Routine Checkup'),
+            ('PROBLEM', 'Problem-Focused'),
+            ('FOLLOWUP', 'Follow-up'),
+            ('EMERGENCY', 'Emergency')
+        ]
+    )
+    findings = models.TextField()
+    pap_smear_done = models.BooleanField(default=False)
+    pap_smear_result = models.CharField(
+        max_length=50,
+        choices=[
+            ('NORMAL', 'Normal'),
+            ('ABNORMAL', 'Abnormal'),
+            ('PENDING', 'Pending')
+        ],
+        null=True,
+        blank=True
+    )
+    breast_exam_done = models.BooleanField(default=False)
+    breast_exam_findings = models.TextField(null=True, blank=True)
+    recommendations = models.TextField()
+    next_exam_date = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Gynecological Exam - {self.exam_date}"
+
+class PregnancyHistory(models.Model):
+    medical_record = models.OneToOneField(MedicalRecord, on_delete=models.CASCADE, related_name='pregnancy_history')
+    total_pregnancies = models.IntegerField(default=0)
+    live_births = models.IntegerField(default=0)
+    miscarriages = models.IntegerField(default=0)
+    complications = models.TextField(blank=True)
+
+class ChronicCondition(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='chronic_conditions')
+    condition = models.CharField(max_length=200)
+    diagnosed_date = models.DateField()
+    status = models.CharField(max_length=50)
+    treatment = models.TextField()
+    notes = models.TextField(blank=True)
+
+class DiagnosticImage(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='diagnostic_images')
+    type = models.CharField(max_length=100)
+    date = models.DateField()
+    facility = models.CharField(max_length=200)
+    ordering_doctor = models.CharField(max_length=200)
+    findings = models.TextField()
+    recommendations = models.TextField()
+    image_url = models.URLField(max_length=500)  # Store URL to image in cloud storage
+
+class SurgicalProcedure(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='surgical_procedures')
+    procedure = models.CharField(max_length=255)
+    date = models.DateTimeField()
+    surgeon = models.CharField(max_length=255)
+    facility = models.CharField(max_length=255)
+    complications = models.TextField(null=True, blank=True)
+    operative_findings = models.TextField()
+    pathology_report = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.procedure} - {self.date}"
+
+class OncologyTreatmentPlan(models.Model):
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='oncology_treatment_plans')
+    diagnosis_details = models.TextField()
+    treatment_intent = models.CharField(max_length=100)
+    chemotherapy_protocol = models.TextField()
+    response_assessment = models.TextField()
+    toxicity_monitoring = models.TextField()
+    supportive_care = models.TextField()
+    follow_up_plan = models.TextField()
+    genetic_counseling_notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Treatment Plan for {self.medical_record.patient}"

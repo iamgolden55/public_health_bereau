@@ -11,8 +11,12 @@ from .models import (
     DataPoint, AnalyticsReport, ResearchPublication, AIModel, HospitalAudit, Message, TelemedicineSession, AnalyticsMetric, MetricLog,
     Task, Protocol, ExternalSystem, IntegrationLog,
     MedicalDevice, DeviceReading, SurgeryType, SurgerySchedule, SurgicalTeam, PreOpAssessment,
-    SurgeryReport, PostOpCare, SurgeryConsent, ResearchCriteria, RecordShare, Resource
+    SurgeryReport, PostOpCare, SurgeryConsent, ResearchCriteria, RecordShare, Resource,
+    Immunization, MentalHealthAssessment, FamilyHistory,
+    MenstrualCycle, FertilityAssessment, HormonePanel, GynecologicalExam, CustomUser
 )
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 # First, let's create a serializer for professional details
 class BasicUserProfileSerializer(serializers.ModelSerializer):
@@ -35,59 +39,11 @@ class BasicMedicalProfessionalSerializer(serializers.ModelSerializer):
         model = MedicalProfessional
         fields = ['id', 'license_number', 'professional_type', 'specialization', 'is_verified']
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    # Add computed fields for professional status
-    has_professional_access = serializers.SerializerMethodField()
-    professional_details = serializers.SerializerMethodField()
-    
+class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = UserProfile
-        fields = [
-            'id', 
-            'email', 
-            'first_name', 
-            'last_name',
-            'password',
-            'date_of_birth',
-            'country',
-            'city',
-            'hpn',
-            'is_verified',
-            'last_active_view',
-            
-            # Health-related fields (available to all users)
-            'blood_type',
-            'allergies',
-            'chronic_conditions',
-            'emergency_contact_name',
-            'emergency_contact_phone',
-            'is_high_risk',
-            
-            # Professional-related fields
-            'has_professional_access',
-            'professional_details'
-        ]
-        extra_kwargs = {
-            'password': {'write_only': True},
-            'hpn': {'read_only': True},
-            'is_verified': {'read_only': True}
-        }
-
-    def get_has_professional_access(self, obj):
-        """
-        Determine if user has professional access rights.
-        This calls our custom method from the model.
-        """
-        return obj.has_professional_access()
-
-    def get_professional_details(self, obj):
-        """
-        Get professional details if they exist.
-        Returns None for regular users.
-        """
-        if obj.has_professional_access():
-            return BasicMedicalProfessionalSerializer(obj.medicalprofessional).data
-        return None
+        model = CustomUser
+        fields = ('id', 'email', 'password', 'first_name', 'last_name')
+        extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         """
@@ -107,6 +63,107 @@ class UserProfileSerializer(serializers.ModelSerializer):
             validated_data['password'] = make_password(validated_data['password'])
         return super().update(instance, validated_data)
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    has_professional_access = serializers.SerializerMethodField()
+    professional_details = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserProfile
+        fields = (
+            # User identification fields
+            'id', 'email', 'password', 'first_name', 'last_name',
+            
+            # Basic profile fields
+            'date_of_birth', 'gender', 'phone_number', 'country', 'city',
+            
+            # Health-related fields
+            'blood_type', 'allergies', 'chronic_conditions',
+            'emergency_contact_name', 'emergency_contact_phone',
+            'is_high_risk',
+            
+            # Medical system fields
+            'hpn', 'is_verified', 'last_active_view',
+            
+            # Professional access fields
+            'has_professional_access', 'professional_details',
+            
+            # GP registration fields
+            'has_registered_gp', 'current_gp_practice', 'current_gp'
+        )
+        read_only_fields = (
+            'id', 'hpn', 'is_verified', 'last_active_view',
+            'has_professional_access', 'professional_details',
+            'is_high_risk'
+        )
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'hpn': {'read_only': True},
+            'is_verified': {'read_only': True}
+        }
+
+    def get_has_professional_access(self, obj):
+        """
+        Determine if user has professional access rights.
+        This calls our custom method from the model.
+        """
+        return obj.has_professional_access()
+
+    def get_professional_details(self, obj):
+        try:
+            if obj.has_professional_access():
+                return BasicMedicalProfessionalSerializer(obj.medicalprofessional).data
+        except MedicalProfessional.DoesNotExist:
+            return None
+        return None
+
+    def create(self, validated_data):
+        # Extract user-specific data
+        email = validated_data.pop('email')
+        password = validated_data.pop('password')
+        first_name = validated_data.pop('first_name')
+        last_name = validated_data.pop('last_name')
+
+        # Create CustomUser instance
+        user = CustomUser.objects.create_user(
+            email=email,
+            username=email,  # Make sure username is explicitly set
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+
+        # Create UserProfile instance
+        user_profile = UserProfile.objects.create(
+            user=user,
+            first_name=first_name,
+            last_name=last_name,
+            **validated_data
+        )
+
+        return user_profile
+
+    def update(self, instance, validated_data):
+        user_data = {}
+        for field in ['email', 'password', 'first_name', 'last_name']:
+            if field in validated_data:
+                value = validated_data.pop(field)
+                if field == 'password':
+                    value = make_password(value)
+                if field == 'email':
+                    user_data['username'] = value
+                user_data[field] = value
+        
+        if user_data:
+            for attr, value in user_data.items():
+                setattr(instance.user, attr, value)
+            instance.user.save()
+
+        return super().update(instance, validated_data)
+
     def to_representation(self, instance):
         """
         Custom method to control the final serialized representation
@@ -114,12 +171,59 @@ class UserProfileSerializer(serializers.ModelSerializer):
         """
         representation = super().to_representation(instance)
         
-        # Add any computed fields or modifications to the final representation
+        # Add user data to response
+        representation.update({
+            'email': instance.user.email,
+            'first_name': instance.first_name,
+            'last_name': instance.last_name,
+        })
+        
+        # Add professional-specific data if applicable
         if representation['has_professional_access']:
-            # You might want to add additional professional-related data here
             representation['can_switch_dashboard'] = True
         
         return representation
+
+    def validate_email(self, value):
+        # Use transaction.atomic() to prevent race conditions
+        from django.db import transaction
+        with transaction.atomic():
+            if CustomUser.objects.filter(email=value).exists():
+                raise serializers.ValidationError("Email already exists")
+        return value
+
+    def validate_gender(self, value):
+        if value not in ['M', 'F', 'O']:
+            raise serializers.ValidationError("Invalid gender value")
+        return value
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return value
+
+    def validate_date_of_birth(self, value):
+        if value and value > timezone.now().date():
+            raise serializers.ValidationError("Date of birth cannot be in the future")
+        return value
+
+    def validate_phone_number(self, value):
+        if value and not value.replace('+', '').isdigit():
+            raise serializers.ValidationError("Invalid phone number format")
+        return value
+
+    def validate(self, data):
+        # Validate password first
+        password = data.get('password')
+        if password:
+            self.validate_password(password)
+        required_fields = ['email', 'password', 'first_name', 'last_name', 'gender']
+        for field in required_fields:
+            if field not in data:
+                raise serializers.ValidationError(f"{field} is required")
+        return data
 
 class RecordShareSerializer(serializers.ModelSerializer):
     class Meta:
@@ -252,15 +356,77 @@ class LabResultSerializer(serializers.ModelSerializer):
         model = LabResult
         fields = '__all__'
 
+# Add these serializers before MedicalRecordSerializer
+class ImmunizationSerializer(serializers.ModelSerializer):
+    administered_by_name = serializers.CharField(source='administered_by.user.get_full_name', read_only=True)
+
+    class Meta:
+        model = Immunization
+        fields = '__all__'
+
+class MentalHealthAssessmentSerializer(serializers.ModelSerializer):
+    assessed_by_name = serializers.CharField(source='assessed_by.user.get_full_name', read_only=True)
+
+    class Meta:
+        model = MentalHealthAssessment
+        fields = '__all__'
+
+class FamilyHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FamilyHistory
+        fields = '__all__'
+
+# Add these right after FamilyHistorySerializer and before MedicalRecordSerializer
+class MenstrualCycleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenstrualCycle
+        fields = '__all__'
+
+class FertilityAssessmentSerializer(serializers.ModelSerializer):
+    assessed_by_name = serializers.CharField(source='assessed_by.user.get_full_name', read_only=True)
+    class Meta:
+        model = FertilityAssessment
+        fields = '__all__'
+
+class HormonePanelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HormonePanel
+        fields = '__all__'
+
+class GynecologicalExamSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.CharField(source='performed_by.user.get_full_name', read_only=True)
+    class Meta:
+        model = GynecologicalExam
+        fields = '__all__'
+
+# Then the MedicalRecordSerializer can use these serializers
 class MedicalRecordSerializer(serializers.ModelSerializer):
     diagnoses = DiagnosisSerializer(many=True, read_only=True)
     medications = MedicationSerializer(many=True, read_only=True)
     procedures = ProcedureSerializer(many=True, read_only=True)
     lab_results = LabResultSerializer(many=True, read_only=True)
+    # Add new related fields
+    immunizations = ImmunizationSerializer(many=True, read_only=True)
+    mental_health_assessments = MentalHealthAssessmentSerializer(many=True, read_only=True)
+    family_histories = FamilyHistorySerializer(many=True, read_only=True)
+    menstrual_cycles = MenstrualCycleSerializer(many=True, read_only=True)
+    fertility_assessments = FertilityAssessmentSerializer(many=True, read_only=True)
+    hormone_panels = HormonePanelSerializer(many=True, read_only=True)
+    gynecological_exams = GynecologicalExamSerializer(many=True, read_only=True)
 
     class Meta:
         model = MedicalRecord
-        fields = '__all__'
+        fields = [
+            'id', 'patient', 'provider', 'hospital', 'appointment',
+            'record_date', 'chief_complaint', 'present_illness',
+            'vital_signs', 'assessment', 'plan', 'is_confidential',
+            'created_at', 'updated_at',
+            # Include all related fields
+            'diagnoses', 'medications', 'procedures', 'lab_results',
+            'immunizations', 'mental_health_assessments', 'family_histories',
+            'menstrual_cycles', 'fertility_assessments', 'hormone_panels',
+            'gynecological_exams'
+        ]
 
 # Financial Serializers
 class InsuranceSerializer(serializers.ModelSerializer):

@@ -64,7 +64,9 @@ from api.models import (
     Subscription, HospitalSubscription, PlatformRevenue, PlatformStatistics,
     ResearchProject, ResearchCriteria, ResearchCohort, CohortMembership,
     DataPoint, AnalyticsReport, AIModel, HospitalAudit,SurgeryType, SurgerySchedule, SurgicalTeam, PreOpAssessment,
-    SurgeryReport, PostOpCare, SurgeryConsent, Message, TelemedicineSession, Resource, GPPractice, GeneralPractitioner, PatientGPRegistration
+    SurgeryReport, PostOpCare, SurgeryConsent, Message, TelemedicineSession, Resource, GPPractice, GeneralPractitioner, PatientGPRegistration,
+    Immunization, MentalHealthAssessment, FamilyHistory,
+    MenstrualCycle, FertilityAssessment, HormonePanel, GynecologicalExam, CustomUser
 )
 
 
@@ -84,7 +86,9 @@ from api.serializers import (
     ExternalSystemSerializer, IntegrationLogSerializer,
     MedicalDeviceSerializer, DeviceReadingSerializer, SurgeryTypeSerializer, SurgeryScheduleSerializer, SurgicalTeamSerializer,
     PreOpAssessmentSerializer, SurgeryReportSerializer, PostOpCareSerializer,
-    SurgeryConsentSerializer, RecordShareSerializer, ResourceSerializer, GPPracticeSerializer, GeneralPractitionerSerializer, PatientGPRegistrationSerializer
+    SurgeryConsentSerializer, RecordShareSerializer, ResourceSerializer, GPPracticeSerializer, GeneralPractitionerSerializer, PatientGPRegistrationSerializer,
+    ImmunizationSerializer, MentalHealthAssessmentSerializer, FamilyHistorySerializer,
+    MenstrualCycleSerializer, FertilityAssessmentSerializer, HormonePanelSerializer, GynecologicalExamSerializer
 )
 from api.utils.social_auth import verify_google_token, verify_apple_token
 

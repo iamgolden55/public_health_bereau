@@ -1,8 +1,13 @@
 // app/context/user-context.tsx
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User, LoginResponse, ApiResponse, TokenResponse } from '@/app/types'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { User, LoginResponse, ApiResponse,  } from '@/app/types'
+
+interface TokenResponse {
+  access: string;
+  refresh: string;
+}
 
 interface UserContextType {
   userData: User | null;
@@ -11,7 +16,8 @@ interface UserContextType {
   setLoading: (loading: boolean) => void;
   authError: string | null;
   handleLogout: () => void;
-  updateUserData: (token: string) => Promise<User>;
+  updateUserData: (token: string) => Promise<User | null>;
+  clearUserData: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -22,11 +28,42 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
 
+  const clearUserData = useCallback(() => {
+    setUserData(null)
+    localStorage.removeItem('token')
+    localStorage.removeItem('refresh')
+    localStorage.removeItem('userRole')
+  }, [])
+
   const storeAuthTokens = (access: string, refresh: string) => {
     console.log('Storing auth tokens...')
     localStorage.setItem('token', access)
     localStorage.setItem('refresh', refresh)
     document.cookie = `token=${access}; path=/; secure; samesite=lax; max-age=3600; domain=${window.location.hostname}`
+  }
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        await fetch(`${API_BASE_URL}/api/logout/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      clearUserData()
+      // Reset state
+      setLoading(false)
+      setAuthError(null)
+      // Redirect to login
+      window.location.href = '/auth/login'
+    }
   }
 
   const refreshToken = async () => {
@@ -35,7 +72,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const refresh = localStorage.getItem('refresh')
       if (!refresh) throw new Error('No refresh token available')
 
-      const response = await fetch(`${API_BASE_URL}/token/refresh/`, {
+      const response = await fetch(`${API_BASE_URL}/api/token/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh }),
@@ -53,69 +90,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateUserData = async (token: string) => {
+  const updateUserData = useCallback(async (token: string): Promise<User | null> => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/user/`, {
+      const response = await fetch(`${API_BASE_URL}/api/user/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to fetch user data')
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch user data');
+      }
 
-      const data: User = await response.json()
+      const userData = await response.json();
       
-      // Store role and user data
-      if (data.role) {
-        localStorage.setItem('userRole', data.role)
+      if (userData.role) {
+        localStorage.setItem('userRole', userData.role);
       }
       
-      setUserData(data)
-      return data
+      setUserData(userData);
+      return userData;
     } catch (error) {
-      console.error('Error updating user data:', error)
-      throw error
+      console.error('Error updating user data:', error);
+      clearUserData();
+      throw error;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      if (token) {
-        await fetch(`${API_BASE_URL}/logout/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        })
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      // Clear all storage
-      localStorage.clear()
-      sessionStorage.clear()
-      
-      // Clear cookies
-      document.cookie.split(";").forEach(cookie => {
-        document.cookie = cookie
-          .replace(/^ +/, "")
-          .replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`)
-      })
-      
-      // Reset state
-      setUserData(null)
-      setLoading(false)
-      setAuthError(null)
-      
-      // Redirect to login
-      window.location.href = '/auth/login'
-    }
-  }
+  }, [clearUserData]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -150,7 +156,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (loading) {
       initializeAuth()
     }
-  }, [loading])
+  }, [loading, updateUserData, refreshToken, handleLogout])
 
   return (
     <UserContext.Provider
@@ -162,6 +168,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         authError,
         handleLogout,
         updateUserData,
+        clearUserData,
       }}
     >
       {children}

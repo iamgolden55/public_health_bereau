@@ -118,10 +118,7 @@ __all__ = [
 ]
 
 # Import all function-based views
-from .authentication_viewset.function_views import (
-    get_user, update_dashboard_preference,
-    share_medical_record, update_user,
-)
+from .authentication_viewset.function_views import *
 
 # Export all function-based views
 __all__.extend([

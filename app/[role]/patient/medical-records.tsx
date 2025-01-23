@@ -31,7 +31,11 @@ import {
   Trash2,
   Stethoscope,
   FileImage,
-  Building2
+  Building2,
+  Syringe,
+  Calendar,
+  TestTube,
+  Clock
 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -67,9 +71,13 @@ import {
 } from '@/app/stores/surgeryStore'
 import { AddSurgeryModal } from './medical-surgerymodal'
 import { ViewSurgeryModal } from './ViewSurgeryModal'
+import { MedicalRecordService } from '@/app/services/medical'
+import { MedicalRecord } from '@/app/types/medical/index';
+import { Loader2 } from 'lucide-react'
+import PreventiveCareTip from '@/app/components/PreventiveCareTip'
+import SimplifiedClinicalNote from '@/app/components/SimplifiedClinicalNote'
 
-// Move these components from page.tsx
-
+// Component to display medical records after successful verification
 const SecureVerification = ({ onVerified }) => {
     // State management for OTP digits, validation status, and loading state
     const [otp, setOtp] = useState(['', '', '', '', '', '']); // Array of 6 digits
@@ -370,37 +378,85 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
   };
   
   const MedicalRecordsContent = () => {
-    const { userData, loading } = useUser();
-    const { surgeries, setAddModalOpen } = useSurgeryStore()  // Add this
-    const upcomingSurgeries = useUpcomingSurgeries()         // Add this
-    const pastSurgeries = usePastSurgeries()                 // Add this
+    const { userData, loading: userLoading } = useUser();
+    const { surgeries, setAddModalOpen } = useSurgeryStore();
+    const upcomingSurgeries = useUpcomingSurgeries();
+    const pastSurgeries = usePastSurgeries();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("diagnosticImaging");
-    const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);  // Add this
-  
-    // Add this function
+    const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
+
+    const [records, setRecords] = useState<MedicalRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const handleViewDetails = (id: string) => {
-      setSelectedSurgeryId(id);
+        setSelectedSurgeryId(id);
     };
-    
-    
-  
+
     const downloadAllRecords = () => {
-      console.log("Downloading all medical records")
-    }
-  
-    const downloadSpecificRecords = () => {
-      console.log("Downloading specific medical records")
-    }
-  
-    const fadeInVariants = {
-      hidden: { opacity: 0, y: 10 },
-      visible: { 
-        opacity: 1, 
-        y: 0,
-        transition: { duration: 0.5, ease: "easeOut" }
-      }
+        console.log("Downloading all medical records");
     };
+
+    const downloadSpecificRecords = () => {
+        console.log("Downloading specific medical records");
+    };
+
+    const fadeInVariants = {
+        hidden: { opacity: 0, y: 10 },
+        visible: { 
+            opacity: 1, 
+            y: 0,
+            transition: { duration: 0.5, ease: "easeOut" }
+        }
+    };
+
+    useEffect(() => {
+        const fetchRecords = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const response = await fetch('http://127.0.0.1:8000/api/medical-records/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch medical records');
+                }
+
+                const data = await response.json();
+                setRecords(data);
+            } catch (err) {
+                console.error('Error fetching records:', err);
+                setError(err instanceof Error ? err.message : 'Failed to fetch records');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchRecords();
+    }, []);
+
+    if (userLoading || loading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center p-8 text-red-500">
+                <AlertCircle className="h-6 w-6 mr-2" />
+                <p>{error}</p>
+            </div>
+        );
+    }
   
     return (
       <motion.div
@@ -511,19 +567,18 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
       Diagnostic Imaging Records
     </h2>
     
-    {userData?.medical_records?.filter(record => record.record_type === 'IMAGING').length > 0 ? (
-      userData.medical_records
+    {records.filter(record => record.record_type === 'IMAGING').length > 0 ? (
+      records
         .filter(record => record.record_type === 'IMAGING')
         .map(record => (
           <RecordEntry
             key={record.id}
             icon={<FileText />}
-            title={record.info} // Use info instead of description split
+            title={record.info}
             date={new Date(record.date_recorded).toLocaleDateString()}
             severity="normal"
           >
             <div className="space-y-3">
-              {/* Info summary badge */}
               <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-full">
                 <AlertCircle className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -531,12 +586,10 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                 </span>
               </div>
 
-              {/* Full description */}
               <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
                 {record.description}
               </p>
 
-              {/* Attachment if exists */}
               {record.attachment && (
                 <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg w-fit">
                   <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 dark:text-blue-400" />
@@ -563,7 +616,7 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                 <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-gray-900 dark:text-white">
                   Laboratory Test Results
                 </h2>
-                {userData?.medical_records?.map(record => (
+                {records.map(record => (
                   record.lab_results?.map(lab => (
                     <RecordEntry
                       key={lab.id}
@@ -573,7 +626,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                       severity={lab.is_abnormal ? "warning" : "normal"}
                     >
                       <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                        {/* Lab Test Information */}
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                             <h4 className="font-medium mb-2">Test Information</h4>
@@ -594,7 +646,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                           </div>
                         </div>
 
-                        {/* Test Results */}
                         <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
                           <h4 className="font-medium mb-3">Results</h4>
                           <div className="space-y-3">
@@ -621,7 +672,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                           </div>
                         </div>
 
-                        {/* Additional Notes */}
                         {lab.notes && (
                           <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                             <div className="flex items-start gap-2">
@@ -637,7 +687,7 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                     </RecordEntry>
                   ))
                 ))}
-                {(!userData?.medical_records?.length || !userData?.medical_records?.some(record => record.lab_results?.length)) && (
+                {(!records.length || !records.some(record => record.lab_results?.length)) && (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
                     <Activity className="w-12 h-12 mb-4 opacity-50" />
                     <p className="text-lg font-medium">No Lab Results Found</p>
@@ -652,7 +702,7 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                 <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-gray-900 dark:text-white">
                   Current Medications
                 </h2>
-                {userData?.medical_records?.map(record => (
+                {records.map(record => (
                   record.medications?.map(med => (
                     <RecordEntry
                       key={med.id}
@@ -662,7 +712,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                       severity={med.is_active ? "normal" : "attention"}
                     >
                       <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                        {/* Medication Details */}
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                             <h4 className="font-medium mb-2">Prescription Details</h4>
@@ -690,7 +739,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                           </div>
                         </div>
 
-                        {/* Instructions */}
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                           <div className="flex items-start gap-2">
                             <FileText className="w-4 h-4 mt-0.5 text-blue-600 dark:text-blue-400" />
@@ -701,7 +749,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                           </div>
                         </div>
 
-                        {/* Side Effects Warning */}
                         {med.side_effects && (
                           <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
                             <div className="flex items-start gap-2">
@@ -717,7 +764,7 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                     </RecordEntry>
                   ))
                 ))}
-                {(!userData?.medical_records?.length || !userData?.medical_records?.some(record => record.medications?.length)) && (
+                {(!records.length || !records.some(record => record.medications?.length)) && (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
                     <Pill className="w-12 h-12 mb-4 opacity-50" />
                     <p className="text-lg font-medium">No Medications Found</p>
@@ -729,7 +776,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
               
             <TabsContent value="surgeries">
               <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
-                {/* Header Section */}
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                     Surgical History
@@ -750,7 +796,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                   </div>
                 </div>
 
-                {/* Quick Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <Card>
                     <CardHeader className="pb-2">
@@ -795,8 +840,7 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                     </CardContent>
                   </Card>
                 </div>
-                  {/* Upcoming Surgeries Section */}
-                {userData?.medicalprofessional && (
+                  {userData?.medicalprofessional && (
                   <Card className="mb-6">
                     <CardHeader>
                       <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -853,7 +897,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                   </Card>
                 )}
 
-                {/* Past Surgeries Timeline */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -928,7 +971,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
                   </CardContent>
                 </Card>
 
-                {/* Modals */}
                 <AddSurgeryModal />
                 {selectedSurgeryId && (
                   <ViewSurgeryModal 
@@ -939,10 +981,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
               </motion.div>
             </TabsContent>
 
-
-
-
-  
             <TabsContent value="chronicConditions">
               <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
                 <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-gray-900 dark:text-white">Chronic Conditions</h2>
@@ -972,103 +1010,294 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
             <TabsContent value="vitalSigns">
               <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
                 <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Vital Signs</h2>
-                <RecordEntry
-                  icon={<Thermometer className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
-                  title="Latest Measurements"
-                  date="Today, 9:30 AM"
-                  severity="normal"
-                >
-                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Blood Pressure</p>
-                      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">120/80</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">Normal</p>
+                {records.map((record) => {
+                    // Parse vital signs string into an object
+                    const vitalSignsArray = record.vital_signs.split(', ').reduce((acc, curr) => {
+                        const [key, value] = curr.split(': ');
+                        return { ...acc, [key]: value };
+                    }, {});
+
+                    // Combine clinical notes from the record
+                    const clinicalNote = [
+                        record.chief_complaint,
+                        record.present_illness,
+                        record.clinical_notes,
+                        record.diagnosis,
+                        record.treatment_plan
+                    ].filter(Boolean).join(' ');
+
+                    return (
+                        <RecordEntry
+                            key={record.id}
+                            icon={<Thermometer />}
+                            title="Latest Measurements"
+                            date={new Date(record.record_date).toLocaleString()}
+                            severity="normal"
+                        >
+                            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                                {/* Blood Pressure */}
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Blood Pressure</p>
+                                    <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+                                        {vitalSignsArray['BP']}
+                                    </p>
+                                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                                        {parseInt(vitalSignsArray['BP'].split('/')[0]) > 130 ? 'Elevated' : 'Normal'}
+                                    </p>
+                                </div>
+
+                                {/* Heart Rate */}
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Heart Rate</p>
+                                    <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+                                        {vitalSignsArray['HR']} bpm
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-green-400">
+                                        {parseInt(vitalSignsArray['HR']) > 100 || parseInt(vitalSignsArray['HR']) < 60 
+                                            ? 'Abnormal' 
+                                            : 'Normal'}
+                                    </p>
+                                </div>
+
+                                {/* Temperature */}
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Temperature</p>
+                                    <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+                                        {vitalSignsArray['Temp']}°C
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-green-400">
+                                        {parseFloat(vitalSignsArray['Temp']) > 37.5 
+                                            ? 'Elevated' 
+                                            : 'Normal'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Clinical Context with Simplified Note */}
+                            {clinicalNote && (
+                                <div className="mt-6 space-y-6">
+                                    {/* Original Clinical Note */}
+                                    <div className="p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
+                                                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                                    Clinical Assessment
+                                                </h4>
+                                                <div className="prose prose-sm dark:prose-invert">
+                                                    <p className="text-blue-800 dark:text-blue-200 leading-relaxed">
+                                                        {clinicalNote}
+                                                    </p>
+                                                </div>
+                                                <div className="mt-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                                                    <Clock className="w-4 h-4" />
+                                                    <span>Recorded on {new Date(record.record_date).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Simplified Explanation Section */}
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                            <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="bg-white dark:bg-gray-800 px-3 text-sm text-gray-500 dark:text-gray-400">
+                                                Simplified Explanation
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <SimplifiedClinicalNote 
+                                        clinicalNote={clinicalNote} 
+                                        recordDate={record.record_date}
+                                        doctorName={record.doctor_name}
+                                    />
+                                </div>
+                            )}
+                        </RecordEntry>
+                    );
+                })}
+
+                {!records.length && (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                        <Thermometer className="w-12 h-12 mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No Vital Signs Records Found</p>
+                        <p className="text-sm mt-2">There are currently no vital signs measurements available.</p>
                     </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Heart Rate</p>
-                      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">72 bpm</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">Normal</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Temperature</p>
-                      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">98.6°F</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">Normal</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">SpO2</p>
-                      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">98%</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">Normal</p>
-                    </div>
-                  </div>
-                </RecordEntry>
+                )}
               </motion.div>
             </TabsContent>
   
             <TabsContent value="preventiveCare">
               <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
                 <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Preventive Care</h2>
-                <RecordEntry
-                  icon={<Shield className="w-5 h-5 text-green-500 dark:text-green-400" />}
-                  title="Immunizations"
-                  date="Last Updated: May 2024"
-                  severity="normal"
-                >
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium">COVID-19 Vaccination</p>
-                        <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                          <p>Status: Fully Vaccinated + Booster</p>
-                          <p>Last Dose: March 15, 2024</p>
-                          <p>Next Due: September 2024</p>
+                
+                {/* Daily Health Tip */}
+                <div className="mb-6">
+                  <PreventiveCareTip />
+                </div>
+
+                {/* Existing Immunization Records */}
+                {records.map(record => record.immunizations?.map(immunization => (
+                  <RecordEntry
+                    key={immunization.id}
+                    icon={<Syringe />}
+                    title={immunization.vaccine_name}
+                    date={new Date(immunization.date_administered).toLocaleDateString()}
+                    severity={immunization.status.toLowerCase()}
+                  >
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className="font-medium">Vaccination Details</p>
+                          <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            <p><strong>Vaccine Code:</strong> {immunization.vaccine_code}</p>
+                            <p><strong>Dose Number:</strong> {immunization.dose_number}</p>
+                            <p><strong>Status:</strong> {immunization.status}</p>
+                            <p><strong>Next Due:</strong> {
+                              immunization.next_due_date 
+                                ? new Date(immunization.next_due_date).toLocaleDateString() 
+                                : 'Not Scheduled'
+                            }</p>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className="font-medium">Administration Details</p>
+                          <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            <p><strong>Administered By:</strong> {immunization.administered_by_name}</p>
+                            <p><strong>Manufacturer:</strong> {immunization.manufacturer}</p>
+                            <p><strong>Lot Number:</strong> {immunization.lot_number}</p>
+                            <p><strong>Site:</strong> {immunization.site}</p>
+                            <p><strong>Route:</strong> {immunization.route}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium">Influenza Vaccine</p>
-                        <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                          <p>Status: Current</p>
-                          <p>Last Dose: October 2023</p>
-                          <p>Next Due: October 2024</p>
+                      {immunization.notes && (
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-sm text-blue-800 dark:text-blue-200">{immunization.notes}</p>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  </RecordEntry>
+                )))}
+                {records.some(record => !record.immunizations?.length) && (
+                  <div className="text-center p-6 text-gray-500 dark:text-gray-400">
+                    <Syringe className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No immunization records found.</p>
                   </div>
-                </RecordEntry>
+                )}
               </motion.div>
             </TabsContent>
   
             <TabsContent value="mentalHealth">
-              <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
-                <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Mental Health</h2>
-                <RecordEntry
-                  icon={<Brain className="w-5 h-5 text-purple-500 dark:text-purple-400" />}
-                  title="Psychological Assessment"
-                  date="1 month ago"
-                  severity="normal"
-                >
-                  <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                    <p className="text-sm">Routine assessment with Dr. Jessica Brown</p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium">Anxiety Assessment</p>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p>GAD-7 Score: 4/21</p>
-                          <p>Interpretation: Minimal anxiety</p>
-                          <p>Recommendation: Continue monitoring</p>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium">Depression Screening</p>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p>PHQ-9 Score: 2/27</p>
-                          <p>Interpretation: Minimal symptoms</p>
-                          <p>Recommendation: Routine follow-up</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </RecordEntry>
-              </motion.div>
+                <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
+                    {records.map((record) => {
+                        // Combine mental health notes
+                        const mentalHealthNote = [
+                            record.mental_health_assessment,
+                            record.mood_evaluation,
+                            record.anxiety_level,
+                            record.treatment_recommendations,
+                            record.therapy_notes
+                        ].filter(Boolean).join(' ');
+
+                        return (
+                            <RecordEntry
+                                key={record.id}
+                                icon={<Brain />}
+                                title="Mental Health Assessment"
+                                date={new Date(record.record_date).toLocaleString()}
+                                severity={record.mental_health_status?.toLowerCase() || 'normal'}
+                            >
+                                <div className="space-y-6">
+                                    {/* Mental Health Status Grid */}
+                                    <div className="grid gap-4 sm:grid-cols-3">
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Mood</h4>
+                                            <div className="text-2xl font-semibold">
+                                                {record.mood_evaluation || 'Not Evaluated'}
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Anxiety Level</h4>
+                                            <div className="text-2xl font-semibold">
+                                                {record.anxiety_level || 'Not Assessed'}
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Sleep Quality</h4>
+                                            <div className="text-2xl font-semibold">
+                                                {record.sleep_quality || 'Not Recorded'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Assessment Notes */}
+                                    {mentalHealthNote && (
+                                        <div className="mt-6 space-y-6">
+                                            {/* Original Clinical Note */}
+                                            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
+                                                        <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                                            Professional Assessment
+                                                        </h4>
+                                                        <div className="prose prose-sm dark:prose-invert">
+                                                            <p className="text-blue-800 dark:text-blue-200 leading-relaxed">
+                                                                {mentalHealthNote}
+                                                            </p>
+                                                        </div>
+                                                        <div className="mt-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                                                            <Clock className="w-4 h-4" />
+                                                            <span>Recorded on {new Date(record.record_date).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Simplified Explanation */}
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                                    <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                                                </div>
+                                                <div className="relative flex justify-center">
+                                                    <span className="bg-white dark:bg-gray-800 px-3 text-sm text-gray-500 dark:text-gray-400">
+                                                        Simplified Explanation
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <SimplifiedClinicalNote 
+                                                clinicalNote={mentalHealthNote}
+                                                recordDate={record.record_date}
+                                                doctorName={record.mental_health_provider}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Treatment Plan */}
+                                    {record.treatment_recommendations && (
+                                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                                            <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
+                                                Treatment Plan
+                                            </h4>
+                                            <p className="text-green-800 dark:text-green-200">
+                                                {record.treatment_recommendations}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </RecordEntry>
+                        );
+                    })}
+                </motion.div>
             </TabsContent>
   
             <TabsContent value="familyHistory">
@@ -1105,115 +1334,175 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
   
             <TabsContent value="reproductiveHealth">
               <motion.div variants={fadeInVariants} initial="hidden" animate="visible">
-                <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-gray-900 dark:text-white">Reproductive Health Records</h2>
-                
-                <RecordEntry
-                  icon={<Baby />}
-                  title="Gynecological Examination"
-                  date="2 months ago"
-                  severity="normal"
-                >
-                  <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                    <p className="text-sm sm:text-base">
-                      Routine examination performed. No abnormalities detected.
-                      Pap smear results normal.
-                    </p>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                        <FileText className="w-4 h-4 text-blue-500" />
-                        <span className="text-sm">Pap_Smear_Results_20240315.pdf</span>
-                      </div>
-                    </div>
+                <Tabs defaultValue="menstrual" className="w-full">
+                  <div className="overflow-x-auto pb-2">
+                    <TabsList className="inline-flex w-auto min-w-full sm:w-full">
+                      <TabsTrigger value="menstrual" className="flex-shrink-0">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Menstrual Cycles
+                      </TabsTrigger>
+                      <TabsTrigger value="fertility" className="flex-shrink-0">
+                        <Baby className="w-4 h-4 mr-2" />
+                        Fertility
+                      </TabsTrigger>
+                      <TabsTrigger value="hormones" className="flex-shrink-0">
+                        <TestTube className="w-4 h-4 mr-2" />
+                        Hormone Panels
+                      </TabsTrigger>
+                      <TabsTrigger value="exams" className="flex-shrink-0">
+                        <Stethoscope className="w-4 h-4 mr-2" />
+                        Gynecological Exams
+                      </TabsTrigger>
+                    </TabsList>
                   </div>
-                </RecordEntry>
-  
-                <RecordEntry
-                  icon={<Baby />}
-                  title="Hormone Panel Results"
-                  date="3 months ago"
-                  severity="attention"
-                >
-                  <div className="space-y-3">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Estrogen Levels</p>
-                        <div className="space-y-1 text-sm">
-                          <p>Current: 150 pg/mL</p>
-                          <p>Reference Range: 30-400 pg/mL</p>
-                          <p className="text-yellow-600 dark:text-yellow-400">Note: Lower end of normal range</p>
+
+                  <TabsContent value="menstrual">
+                    {records.map(record => record.menstrual_cycles?.map(cycle => (
+                      <RecordEntry
+                        key={cycle.id}
+                        icon={<Calendar />}
+                        title="Menstrual Cycle"
+                        date={new Date(cycle.cycle_startdate).toLocaleDateString()}
+                        severity={cycle.flow_intensity.toLowerCase()}
+                      >
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <p className="font-medium mb-2">Cycle Information</p>
+                            <div className="space-y-1 text-sm">
+                              <p><strong>Start Date:</strong> {new Date(cycle.cycle_startdate).toLocaleDateString()}</p>
+                              <p><strong>End Date:</strong> {cycle.cycle_enddate ? new Date(cycle.cycle_enddate).toLocaleDateString() : 'Ongoing'}</p>
+                              <p><strong>Duration:</strong> {cycle.cycle_length} days</p>
+                              <p><strong>Flow:</strong> {cycle.flow_intensity}</p>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <p className="font-medium mb-2">Symptoms</p>
+                            <div className="space-y-1 text-sm">
+                              {cycle.symptoms.map((symptom, index) => (
+                                <Badge key={index} className="mr-2 mb-2">{symptom}</Badge>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Progesterone Levels</p>
-                        <div className="space-y-1 text-sm">
-                          <p>Current: 8 ng/mL</p>
-                          <p>Reference Range: 5-20 ng/mL</p>
-                          <p className="text-green-600 dark:text-green-400">Status: Normal</p>
+                      </RecordEntry>
+                    )))}
+                  </TabsContent>
+
+                  <TabsContent value="fertility">
+                    {records.map(record => record.fertility_assessments?.map(assessment => (
+                      <RecordEntry
+                        key={assessment.id}
+                        icon={<TestTube />}
+                        title="Fertility Assessment"
+                        date={new Date(assessment.assessment_date).toLocaleDateString()}
+                        severity="normal"
+                      >
+                        <div className="space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <p className="font-medium mb-2">Assessment Results</p>
+                              <div className="space-y-1 text-sm">
+                                <p><strong>AMH Level:</strong> {assessment.amh_level}</p>
+                                <p><strong>Follicle Count:</strong> {assessment.follicle_count}</p>
+                                <p><strong>Assessed By:</strong> {assessment.assessed_by_name}</p>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <p className="font-medium mb-2">Findings</p>
+                              <div className="space-y-1 text-sm">
+                                <p><strong>Uterine:</strong> {assessment.uterine_findings}</p>
+                                <p><strong>Ovarian:</strong> {assessment.ovarian_findings}</p>
+                              </div>
+                            </div>
+                          </div>
+                          {assessment.recommendations && (
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">Recommendations</h4>
+                              <p className="text-sm text-blue-800 dark:text-blue-200">{assessment.recommendations}</p>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </RecordEntry>
-  
-                <RecordEntry
-                  icon={<Baby />}
-                  title="Fertility Assessment"
-                  date="6 months ago"
-                  severity="normal"
-                >
-                  <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                    <p className="text-sm sm:text-base">
-                      Comprehensive fertility evaluation completed. Overall reproductive health is good.
-                      Recommended follow-up in 12 months.
-                    </p>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Ovarian Reserve</p>
-                        <div className="space-y-1 text-sm">
-                          <p>AMH Level: 2.5 ng/mL</p>
-                          <p>Follicle Count: 12</p>
-                          <p className="text-green-600 dark:text-green-400">Status: Optimal Range</p>
+                      </RecordEntry>
+                    )))}
+                  </TabsContent>
+
+                  <TabsContent value="hormones">
+                    {records.map(record => record.hormone_panels?.map(panel => (
+                      <RecordEntry
+                        key={panel.id}
+                        icon={<TestTube />}
+                        title="Hormone Panel"
+                        date={new Date(panel.test_date).toLocaleDateString()}
+                        severity={panel.is_abnormal ? 'warning' : 'normal'}
+                      >
+                        <div className="space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-3">
+                            {[
+                              { label: 'Estrogen', value: panel.estrogen_level },
+                              { label: 'Progesterone', value: panel.progesterone_level },
+                              { label: 'FSH', value: panel.fsh_level },
+                              { label: 'LH', value: panel.lh_level },
+                              { label: 'Testosterone', value: panel.testosterone_level },
+                              { label: 'Prolactin', value: panel.prolactin_level },
+                            ].map(hormone => (
+                              <div key={hormone.label} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{hormone.label}</p>
+                                <p className="text-xl font-semibold mt-1">{hormone.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {panel.notes && (
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                              <p className="text-sm">{panel.notes}</p>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Uterine Health</p>
-                        <div className="space-y-1 text-sm">
-                          <p>Endometrial Thickness: 8mm</p>
-                          <p>Morphology: Normal</p>
-                          <p className="text-green-600 dark:text-green-400">Status: Healthy</p>
+                      </RecordEntry>
+                    )))}
+                  </TabsContent>
+
+                  <TabsContent value="exams">
+                    {records.map(record => record.gynecological_exams?.map(exam => (
+                      <RecordEntry
+                        key={exam.id}
+                        icon={<Stethoscope />}
+                        title={`${exam.exam_type} Examination`}
+                        date={new Date(exam.exam_date).toLocaleDateString()}
+                        severity="normal"
+                      >
+                        <div className="space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <p className="font-medium mb-2">Examination Details</p>
+                              <div className="space-y-1 text-sm">
+                                <p><strong>Type:</strong> {exam.exam_type}</p>
+                                <p><strong>Performed By:</strong> {exam.performed_by_name}</p>
+                                <p><strong>Next Exam:</strong> {exam.next_exam_date ? 
+                                  new Date(exam.next_exam_date).toLocaleDateString() : 'Not Scheduled'}</p>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <p className="font-medium mb-2">Screening Results</p>
+                              <div className="space-y-1 text-sm">
+                                {exam.pap_smear_done && (
+                                  <p><strong>Pap Smear:</strong> {exam.pap_smear_result}</p>
+                                )}
+                                {exam.breast_exam_done && (
+                                  <p><strong>Breast Exam:</strong> {exam.breast_exam_findings}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                            <h4 className="font-medium mb-2">Findings & Recommendations</h4>
+                            <p className="text-sm mb-2">{exam.findings}</p>
+                            <p className="text-sm">{exam.recommendations}</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </RecordEntry>
-  
-                <RecordEntry
-                  icon={<Baby />}
-                  title="Menstrual Cycle Tracking"
-                  date="Ongoing"
-                  severity="normal"
-                >
-                  <div className="space-y-3">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Current Cycle</p>
-                        <div className="space-y-1 text-sm">
-                          <p>Length: 28 days</p>
-                          <p>Last Period: 15 days ago</p>
-                          <p>Next Expected: In 13 days</p>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="font-medium mb-2">Cycle Analysis</p>
-                        <div className="space-y-1 text-sm">
-                          <p>Average Length: 28-30 days</p>
-                          <p>Regularity: Regular</p>
-                          <p className="text-green-600 dark:text-green-400">Status: Normal</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </RecordEntry>
+                      </RecordEntry>
+                    )))}
+                  </TabsContent>
+                </Tabs>
               </motion.div>
             </TabsContent>
             
@@ -1222,10 +1511,6 @@ const RecordEntry = ({ icon, title, date, children, severity }) => {
       </motion.div>
     );
   }
-
-
-
-
 
 // Main container component that manages the OTP verification state
 const MedicalRecordsSection = () => {

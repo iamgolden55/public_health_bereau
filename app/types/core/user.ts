@@ -1,11 +1,13 @@
 // app/types/core/user.ts
+import { MedicalRecord } from '../medical/records';
+
 export interface User {
     id: number;
     email: string;
     username: string;
     first_name: string;
     last_name: string;
-    date_of_birth?: string;
+    date_of_birth: string;
     country?: string;
     city?: string;
     hpn?: string;
@@ -26,4 +28,17 @@ export interface User {
     emergency_contact_phone?: string;
     is_high_risk: boolean;
     last_visit_date?: string;
+    medical_records?: MedicalRecord[];
+    role: string;
+    medicalprofessional?: boolean;
+}
+
+export interface LoginResponse {
+    access: string;
+    refresh: string;
+    user: User;
+}
+
+export interface LoginError {
+    error: string;
 }

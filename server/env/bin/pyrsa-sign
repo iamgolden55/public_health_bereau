@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/iamgolden55/Healthcare/Personal Coding/public-Health-Bureau/server/env/bin/python" "$0" "$@"
+'''exec' "/Users/iamgolden55/Healthcare/Personal Coding/public_health/server/env/bin/python" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re

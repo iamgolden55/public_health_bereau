@@ -106,7 +106,7 @@ export default function TicketSelector() {
           <div className="w-full cursor-pointer">
           <div className="aspect-video w-full bg-muted rounded-lg mb-4">
           <img 
-            src={`https://img.freepik.com/free-vector/gift-concept-illustration_114360-28199.jpg?t=st=1737224096~exp=1737227696~hmac=661ae015bee15dc0623253b60b78b7e90deb9c230d471aba343ff819794d16da&w=1060`}
+            src={`https://img.freepik.com/free-vector/hand-drawn-flat-giving-tuesday-illustration_23-2149140039.jpg?t=st=1737485003~exp=1737488603~hmac=365e732ff43daecfec20b03b3c1bf663d57cb0082ad2cdae94641bad7ce0ff03&w=1060`}
             alt="Gift concept illustration" 
             className="w-full h-full object-cover rounded-lg"
             style={{ objectPosition: '0 -32px' }}  // Adjust -20px value to shift more/less

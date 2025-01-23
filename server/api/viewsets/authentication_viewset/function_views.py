@@ -1,7 +1,13 @@
-# This file contains the function-based views for the authentication API endpoints.
+# This file contains the function-based views for the authentication API endpoints located in the "authentication_viewset/function_views.py" .
 
+from django.core.cache import cache
 from ..imports import *
 from django.utils.dateparse import parse_date
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework import serializers  # Add this import
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -228,3 +234,91 @@ def update_user(request):
                'emergency_contact_phone': user.emergency_contact_phone,
            }
        })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_medical_records(request):
+    """
+    Fetch medical records for the authenticated user.
+    Only the patient or authorized medical professionals can access these records.
+    """
+    try:
+        # Fetch medical records for the authenticated user
+        medical_records = MedicalRecord.objects.filter(patient=request.user)
+        
+        # Serialize the records
+        serializer = MedicalRecordSerializer(medical_records, many=True)
+        
+        return Response(serializer.data)
+    
+    except Exception as e:
+        print(f"Error fetching medical records: {str(e)}")
+        return Response(
+            {"error": "Failed to retrieve medical records"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+@throttle_classes([UserRateThrottle])
+def reset_password(request):
+    try:
+        email = request.data.get('email')
+        new_password = request.data.get('new_password')
+        token = request.data.get('token')
+
+        if not all([email, new_password, token]):
+            return Response(
+                {"error": "Missing required fields"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = UserProfile.objects.get(
+                user__email=email, 
+                password_reset_token=token,
+                password_reset_token_created__gt=timezone.now() - timedelta(hours=24)
+            )
+        except UserProfile.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired reset token"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Use serializer to validate password
+        serializer = UserProfileSerializer()
+        try:
+            validated_password = serializer.validate_password(new_password)
+        except serializers.ValidationError as e:
+            return Response(
+                {"error": str(e.detail[0])}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update password
+        user.user.set_password(validated_password)
+        user.user.save()
+        user.password_reset_token = None
+        user.save()
+
+        return Response({"message": "Password reset successful"})
+
+    except Exception as e:
+        print(f"Password reset failed: {str(e)}")
+        return Response(
+            {"error": "Password reset failed"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+@throttle_classes([UserRateThrottle])
+def request_password_reset(request):
+    email = request.data.get('email')
+    if UserProfile.objects.filter(user__email=email).exists():
+        # Add cooldown check
+        last_request = cache.get(f'pwd_reset_{email}')
+        if last_request:
+            return Response(
+                {"error": "Please wait before requesting another reset"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        cache.set(f'pwd_reset_{email}', True, timeout=300)  # 5 min cooldown

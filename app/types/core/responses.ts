@@ -12,3 +12,5 @@ export interface PaginatedResponse<T> {
     previous: string | null;
     results: T[];
 }
+
+// Base response type for API calls

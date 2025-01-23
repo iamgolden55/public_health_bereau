@@ -35,6 +35,7 @@ export default function RegistrationPage() {
     email: "",
     password: "",
     date_of_birth: "",
+    gender: "",
     country: "",
     city: "",
   });
@@ -107,6 +108,7 @@ export default function RegistrationPage() {
           email: "",
           password: "",
           date_of_birth: "",
+          gender: "",
           country: "",
           city: "",
         });
@@ -261,72 +263,90 @@ export default function RegistrationPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="gender" className="text-sm font-medium">
+                  Gender<span className="text-red-500">*</span>
+                </label>
+                <Select onValueChange={(value) => setFormData({ ...formData, gender: value })}>
+                  <SelectTrigger id="gender">
+                    <SelectValue placeholder="Select your gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Male</SelectItem>
+                    <SelectItem value="F">Female</SelectItem>
+                    <SelectItem value="O">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.gender && (
+                  <p className="text-red-500 text-sm">{errors.gender}</p>
+                )}
+              </div>
 
-  {/* Country Selection */}
-  <div className="space-y-2">
-    <label htmlFor="country" className="text-sm font-medium">
-      Country<span className="text-red-500">*</span>
-    </label>
-    <Select onValueChange={handleCountryChange}>
-      <SelectTrigger id="country" className="bg-white text-black">
-        <SelectValue placeholder="Select your country" />
-      </SelectTrigger>
-      <SelectContent className="max-h-60 overflow-y-auto bg-white text-black">
-        {/* Search Input for Countries */}
-        <div className="p-2">
-          <Input
-            type="text"
-            placeholder="Search country..."
-            className="bg-white text-black"
-            onChange={(e) => {
-              const searchQuery = e.target.value.toLowerCase();
-              const filtered = filteredCountries.filter((country) =>
-                country.toLowerCase().includes(searchQuery)
-              );
-              setFilteredCountries(filtered);
-            }}
-          />
-        </div>
-        {filteredCountries.map((country) => (
-          <SelectItem key={country} value={country}>
-            {country}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
+              {/* Country Selection */}
+              <div className="space-y-2">
+                <label htmlFor="country" className="text-sm font-medium">
+                  Country<span className="text-red-500">*</span>
+                </label>
+                <Select onValueChange={handleCountryChange}>
+                  <SelectTrigger id="country" className="bg-white text-black">
+                    <SelectValue placeholder="Select your country" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto bg-white text-black">
+                    {/* Search Input for Countries */}
+                    <div className="p-2">
+                      <Input
+                        type="text"
+                        placeholder="Search country..."
+                        className="bg-white text-black"
+                        onChange={(e) => {
+                          const searchQuery = e.target.value.toLowerCase();
+                          const filtered = filteredCountries.filter((country) =>
+                            country.toLowerCase().includes(searchQuery)
+                          );
+                          setFilteredCountries(filtered);
+                        }}
+                      />
+                    </div>
+                    {filteredCountries.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-  {/* City Selection */}
-  {formData.country && (
-    <div className="space-y-2 mt-4">
-      <label htmlFor="city" className="text-sm font-medium">
-        City<span className="text-red-500">*</span>
-      </label>
-      <Select onValueChange={handleCityChange}>
-        <SelectTrigger id="city" className="bg-white text-black">
-          <SelectValue placeholder="Select your city" />
-        </SelectTrigger>
-        <SelectContent className="max-h-60 overflow-y-auto bg-white text-black">
-          {/* Search Input for Cities */}
-          <div className="p-2">
-            <Input
-              type="text"
-              placeholder="Search city..."
-              className="bg-white text-black"
-              onChange={handleCitySearch} // Uses the handleCitySearch function
-            />
-          </div>
-          {filteredCities.map((city) => (
-            <SelectItem key={city} value={city}>
-              {city}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )}
+              {/* City Selection */}
+              {formData.country && (
+                <div className="space-y-2 mt-4">
+                  <label htmlFor="city" className="text-sm font-medium">
+                    City<span className="text-red-500">*</span>
+                  </label>
+                  <Select onValueChange={handleCityChange}>
+                    <SelectTrigger id="city" className="bg-white text-black">
+                      <SelectValue placeholder="Select your city" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto bg-white text-black">
+                      {/* Search Input for Cities */}
+                      <div className="p-2">
+                        <Input
+                          type="text"
+                          placeholder="Search city..."
+                          className="bg-white text-black"
+                          onChange={handleCitySearch} // Uses the handleCitySearch function
+                        />
+                      </div>
+                      {filteredCities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-<br/>
+              <br/>
 
 
               <div className="flex items-center space-x-2">
